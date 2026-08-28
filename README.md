@@ -4,7 +4,7 @@ Open-source place to dump and track tasks. Markdown lists are the source of trut
 
 ## About
 
-opendump is a harness-portable task dump: you talk to your agent, it captures personal and work tasks into a simple markdown layout, and persists them to GitHub when it can — or to local files / a durable artifact when it cannot. Use the public repo as a GitHub template, or cold-start from the URL alone.
+opendump is a harness-portable task dump: you talk to your agent, it captures personal and work tasks into a simple markdown layout, and persists them to GitHub when it can — or to local files / a durable artifact when it cannot. Drop a quick screenshot that contains new tasks, or point at files and other content — the agent reads them and captures the work accordingly. Use the public repo as a GitHub template, or cold-start from the URL alone.
 
 **Preferred store:** GitHub (sync + history). Cold start can also lock **local files** or a **durable artifact** (e.g. Canvas) if you do not use GitHub. Chat-only harnesses cannot track reliably — the agent should say so and help you set up something better.
 
