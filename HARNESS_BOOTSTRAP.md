@@ -22,7 +22,7 @@ review https://github.com/JPilsinger/opendump and start the coldstart procedure.
 
 Equivalent triggers also count: **“cold start”**, **“initialize cold start”**, **“bootstrap opendump”**, **“initialize from opendump”**, or the same request naming another opendump URL/checkout the user provides.
 
-When the one-liner points at the public template, review that repository (or a reachable checkout), then execute this protocol. Cold start does **not** require that the user already has their own GitHub repo. Detect capabilities, choose a mode (with the user when needed), then install the adapter. Do not silently rewrite another project's instructions without that explicit request.
+When the one-liner points at the public template, **review it as the workflow reference only**, then execute this protocol. Cold start must end with a locked **user-owned** store. Detect capabilities, choose a mode (with the user when needed), create a personal template instance when GitHub is chosen and none exists, then install the adapter. Do not silently rewrite another project's instructions without that explicit request. Do not push tasks to `JPilsinger/opendump`.
 
 ## Capability ladder and mode selection
 
@@ -32,19 +32,23 @@ During cold start, determine what the harness can do, then lock **exactly one** 
 
 Inspect, in order:
 
-1. Can the harness read/write a GitHub opendump repo (or a local git checkout of one) in this session?
-2. If not, can the user be helped to connect or create one (auth, template clone, paste repo URL, SSH/HTTPS remote)?
+1. Can the harness use GitHub for a **user-owned** opendump repo (or a local git checkout of one) in this session?
+2. If the user has no personal instance yet, can the agent **create one from the template** (`JPilsinger/opendump`) or guide **Use this template** + clone?
 3. Can the harness persist a markdown file tree that mirrors the opendump layout?
 4. Can the harness persist a durable artifact (Canvas, project doc, etc.) that can mirror the same sections?
 5. If none of the above — mode is `unsupported`.
 
+Reject any plan that would write tasks into the public upstream template.
+
 ### Selection policy
 
-1. **Prefer `github`.** If GitHub access is missing but plausible, **offer to help set it up or connect it** before falling back. Do not skip straight to local without saying GitHub is preferred and available as an option.
-2. If the user declines GitHub, is not technically comfortable with it, or GitHub cannot be made to work — offer **`local-files`** (preferred local) or **`artifact`** when files are unavailable but a durable artifact is.
-3. If the harness is chat-only (no tools, no durable artifacts, no GitHub) — lock **`unsupported`**, state clearly that reliable task tracking is impossible here, and help the user move to a better harness or store. Do not install an adapter that pretends chat memory is the database.
-4. Ask the user to confirm when more than one viable mode remains, unless they already stated a preference.
-5. **Never write project instructions that leave mode optional or branched** (e.g. “use GitHub if available, otherwise local”). Resolve the mode during cold start; the adapter states only the chosen mode and location.
+1. **Prefer user-owned `github`.** Create or connect a repo **from this template** under the user’s account (or their org). If they already have a personal opendump instance, use that. **Never** use `JPilsinger/opendump` as the write/store location.
+2. If GitHub access is missing but plausible, **offer to help set it up**: auth, **Use this template** / `gh repo create … --template JPilsinger/opendump`, clone, set remote. Do not skip straight to local without offering the template path.
+3. If the user declines GitHub, is not technically comfortable with it, or GitHub cannot be made to work — offer **`local-files`** (preferred local) or **`artifact`** when files are unavailable but a durable artifact is.
+4. If the harness is chat-only (no tools, no durable artifacts, no GitHub) — lock **`unsupported`**, state clearly that reliable task tracking is impossible here, and help the user move to a better harness or store. Do not install an adapter that pretends chat memory is the database.
+5. Ask the user to confirm when more than one viable mode remains, unless they already stated a preference.
+6. **Never write project instructions that leave mode optional or branched** (e.g. “use GitHub if available, otherwise local”). Resolve the mode during cold start; the adapter states only the chosen mode and location.
+7. **Never** install an adapter whose `github` location is the public upstream template.
 
 ### Record the lock
 
@@ -71,7 +75,7 @@ For `local-files`, `location` is an absolute or project-relative path. For `arti
 1. **Read fresh canonical workflow** — When an opendump reference is available (this template, a user repo, or a local copy), read `AGENTS.md` and this file first. Do not bootstrap solely from remembered chat text or an old adapter when fresher canonical docs exist.
 2. **Detect the host harness** — Prefer explicit environment/platform identity. If unclear, inspect the workspace and available tools. For an unknown or rapidly changing harness, check current official documentation when web access is available.
 3. **Run the capability ladder** — Select and confirm the store mode per the policy above. Do not materialize an ambivalent adapter.
-4. **Materialize the store if needed** — For `local-files` or `artifact`, create the mirrored layout/sections (empty task lists + workflow copies or a pointer to them) before claiming success. For `github`, ensure the target repo/checkout is usable; help create-from-template or connect if not.
+4. **Materialize the store if needed** — For `local-files` or `artifact`, create the mirrored layout/sections (empty task lists + workflow copies or a pointer to them) before claiming success. For `github`, if the user lacks a personal opendump repo, **create one from `JPilsinger/opendump` via the template flow** (or walk them through **Use this template**), clone/connect it, and only then treat it as the store. Never initialize task writes against the public template.
 5. **Locate the native persistent instruction surface** — Project instruction file, rules directory, or project-instructions field.
 6. **Materialize a derived adapter with a locked mode** — Translate canonical behavior into that surface for **only** the chosen mode. Preserve unrelated pre-existing project instructions. Use a dedicated generated file where possible; otherwise a clearly delimited managed block.
 7. **Make the adapter idempotent** — A repeated cold start replaces/updates the existing opendump managed block or dedicated adapter, never appends a duplicate. If the user requests a **mode change**, replace the lock and update persist rules in the same refresh — still one mode only.
@@ -120,7 +124,7 @@ OpenCode natively consumes project `AGENTS.md`. If the opendump store itself is 
 
 ### ChatGPT Projects
 
-Use **Project Instructions** as the persistent surface. Prefer connected GitHub as `github` mode; otherwise lock a durable project-file/artifact approach if the product provides one. If neither works, `unsupported` plus setup help. Produce an exact manual block when write access to project instructions is unavailable.
+Use **Project Instructions** as the persistent surface. Prefer a connected **user-owned** GitHub repo created from this template as `github` mode; otherwise lock a durable project-file/artifact approach if the product provides one. If neither works, `unsupported` plus setup help. Produce an exact manual block when write access to project instructions is unavailable. Never bind task writes to `JPilsinger/opendump`.
 
 ### Canvas / artifact-first harnesses (e.g. Google Antigravity)
 
@@ -135,13 +139,15 @@ Do not force another vendor's file convention onto an unknown harness. Discover 
 A generated adapter must, at minimum:
 
 - State **exactly one** locked `store` mode and a concrete `location` (no multi-mode branching).
+- If `store` is `github`, `location` must be a **user-owned** repo created from the template — **never** `JPilsinger/opendump` or another upstream public template as the write target.
 - On session/project startup, read live task lists from that store when accessible; say so when not.
-- On explicit cold start, re-run this bootstrap and refresh the native adapter idempotently (including mode lock).
-- New trackable tasks are deduplicated, classified, added to Backlog, and persisted **per the locked mode’s persist rules** in the same turn.
+- On explicit cold start, re-run this bootstrap and refresh the native adapter idempotently (including mode lock). If GitHub is chosen and no personal instance exists, create one from the template before capturing tasks.
+- New trackable tasks are deduplicated, classified, added to Backlog, and persisted **per the locked mode’s persist rules** in the same turn — only into the locked user-owned store.
 - Corrections and progress mutate active lists; completion moves items to the matching completed archive.
 - Status prompts open with all open tasks across Private and Business.
 - Ordinary questions, brainstorming, and instruction/bootstrap maintenance are not automatically created as tasks.
 - Never invent store state and never claim a sync/write succeeded when the required access or write capability is unavailable.
+- Never push or commit user tasks to the public upstream template.
 - In `unsupported` mode: refuse reliable capture and offer a better setup — do not half-track in chat history.
 
 ## Migration

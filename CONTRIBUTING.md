@@ -4,9 +4,9 @@ opendump is meant to be forked, copied, and bent to fit how you work.
 
 ## Personal tinkering
 
-Change the workflow in your own instance however you like — store layout, capture rules, adapters, naming, archives. That is expected. You do not need permission to experiment in your private copy.
+Change the workflow in your own **template instance** however you like — store layout, capture rules, adapters, naming, archives. That is expected. You do not need permission to experiment in your private copy.
 
-Do **not** open PRs that only encode your personal task habits or contain real personal/business tasks.
+Do **not** open PRs that only encode your personal task habits or contain real personal/business tasks. Do **not** push personal tasks into `JPilsinger/opendump`.
 
 ## Improvements to the shared template
 

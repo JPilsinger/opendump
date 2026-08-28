@@ -2,7 +2,14 @@
 
 Personal and business task dump. Markdown task lists are the source of truth; the **store** that holds them may be GitHub (preferred), a local file tree, or a durable harness artifact. The workflow is portable across agent harnesses such as ChatGPT, Claude, Cursor, OpenCode, and future platforms.
 
-Use this repo as a **GitHub template** when you want remote sync: create your own copy, then point your preferred agent harness at that copy. Do not commit personal tasks back to the public template. If you do not use GitHub, cold start can still set up a local or artifact mirror of the same layout.
+## Public template vs your store (critical)
+
+`https://github.com/JPilsinger/opendump` is the **public upstream template only**. It is **not** a personal or shared task database.
+
+- **Never** commit, push, or write user tasks, progress, or completions into `JPilsinger/opendump` (or any other published upstream template).
+- For GitHub sync, the user must have a **user-specific** repository created from this template (**Use this template**), then lock that repo as the store.
+- During cold start, if GitHub mode is chosen and the user has no personal opendump repo yet, **create or help create one** (template generate / `gh` / guided UI). Do not fall back to pushing into the public template.
+- Reviewing the public template for workflow docs is fine; mutating its task files for a user’s work is forbidden.
 
 **Setup one-liner** (host harness chat):
 
@@ -10,7 +17,7 @@ Use this repo as a **GitHub template** when you want remote sync: create your ow
 review https://github.com/JPilsinger/opendump and start the coldstart procedure.
 ```
 
-That request is enough to start cold start from the public template (or substitute the user’s own opendump URL/checkout).
+That starts cold start from the public template as the *workflow reference*. The agent must then lock a **user-owned** store (new template instance, existing personal repo, local files, or artifact) — never the public template as the write target.
 
 ## Layout
 
@@ -39,12 +46,14 @@ Exactly **one** mode is active for a given opendump installation. Host project i
 
 | Mode | Store | Sync | When to use |
 |------|--------|------|-------------|
-| `github` | User’s GitHub opendump repo (template instance or fork), usually `main` | Commit + push each mutation | Preferred whenever the harness can read/write GitHub or a clone |
+| `github` | **User-owned** GitHub opendump repo (created via **Use this template**), usually `main` | Commit + push each mutation **only to that user repo** | Preferred whenever the harness can use GitHub |
 | `local-files` | Markdown tree on disk mirroring this layout | Write files same turn; no remote | User has no GitHub, or prefers local-only |
 | `artifact` | Durable harness artifact (e.g. Canvas, project doc) mirroring the same sections | Update the artifact same turn | Harness has artifacts but not usable files/GitHub |
 | `unsupported` | None | No reliable tracking | Chat-only: no tools, no durable artifacts, no GitHub |
 
-**Preferred order when choosing a mode (cold start):** `github` → help connect/set up GitHub → `local-files` or `artifact` → `unsupported` with an upgrade path.
+**Preferred order when choosing a mode (cold start):** create/connect **user-owned** `github` repo from the template → help with GitHub auth/template if needed → `local-files` or `artifact` → `unsupported` with an upgrade path.
+
+Hard ban: locking `github` location to `JPilsinger/opendump` (or writing tasks there) is **invalid**. Always use a distinct user/org repo.
 
 ### Mode rules
 
@@ -96,10 +105,10 @@ Behavior is identical across modes except for **where** mutations are written an
 
 ### Persist rules by mode
 
-- **`github`** — commit and push to `main` (or the configured default branch) after mutations; short audit-friendly message; group mutations from the same user message when practical.
+- **`github`** — commit and push to the **locked user-owned** repo’s default branch after mutations; short audit-friendly message; group mutations from the same user message when practical. **Never** push to `JPilsinger/opendump`.
 - **`local-files`** — write the markdown files in the same turn; no push.
 - **`artifact`** — update the durable artifact in the same turn; no push. Warn that portability and multi-device sync are weaker than GitHub.
-- **`unsupported`** — do not capture; explain the limitation and offer setup help toward `github`, `local-files`, or `artifact`.
+- **`unsupported`** — do not capture; explain the limitation and offer setup help toward user-owned `github`, `local-files`, or `artifact`.
 
 ## What counts as a new task
 
