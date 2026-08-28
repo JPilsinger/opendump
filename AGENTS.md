@@ -150,7 +150,7 @@ Use today’s date when the user reports finishing unless they give another date
 
 ## Intake details
 
-- Screenshots/images: read the image; write the actual to-do, not “look at screenshot”.
+- Screenshots / phone photos / images: read the image; extract and write the actual to-dos (not “look at screenshot”). Phone camera shots of notes, whiteboards, receipts, chats, etc. count the same as screenshots.
 - Voice/audio: transcribe or summarize if possible; otherwise note the filename and ask.
 - Text/markdown/chat: extract trackable tasks and auto-capture them.
 - Process non-empty `inbox/` captures into tasks, then move them to `processed/` when practical (file stores). Never commit raw inbox/processed captures to git.

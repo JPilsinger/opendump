@@ -4,7 +4,7 @@ Open-source place to dump and track tasks. Your AI agent (Cursor, Claude, ChatGP
 
 ## About
 
-opendump is a harness-portable task dump: you talk to your agent, it captures personal and work tasks, and persists them to **your** GitHub repo when you want sync — or to local files / a durable artifact when you do not. Drop a quick screenshot that contains new tasks, or point at files and other content — the agent reads them and captures the work accordingly.
+opendump is a harness-portable task dump: you talk to your agent, it captures personal and work tasks, and persists them to **your** GitHub repo when you want sync — or to local files / a durable artifact when you do not. Drop a quick screenshot, snap a photo on your phone, or point at files and other content — the agent reads the image or file and extracts the to-dos accordingly.
 
 This repository (`JPilsinger/opendump`) is the **public GitHub template**, not your task database. Personal and shared tasks live in a repo **you** create with **Use this template**.
 
