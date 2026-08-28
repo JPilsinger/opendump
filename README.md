@@ -1,6 +1,6 @@
 # opendump
 
-Open-source place to dump tasks. Markdown lists in GitHub are the source of truth; your agent (Cursor, Claude, ChatGPT, OpenCode, …) catches, progresses, and archives them across harnesses.
+Open-source place to dump and track tasks. Markdown lists in GitHub are the source of truth; your agent (Cursor, Claude, ChatGPT, OpenCode, …) catches, progresses, and archives them across harnesses.
 
 ## Use as a template
 
