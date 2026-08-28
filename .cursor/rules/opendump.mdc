@@ -1,0 +1,41 @@
+---
+description: opendump — GitHub-synced startup, harness-independent cold start, automatic task capture, progress logging
+alwaysApply: true
+---
+
+# opendump
+
+This repository on `main` is the source of truth. `AGENTS.md` is authoritative for task workflow; `HARNESS_BOOTSTRAP.md` is authoritative for cold-start translation. This Cursor rule is a derived adapter and must not become a competing source of truth.
+
+## Startup
+
+At the start of every conversation in this project, review the latest canonical repository state before relying on prior chat context. Read `AGENTS.md`, `HARNESS_BOOTSTRAP.md`, `private.md`, and `business.md`. If GitHub cannot be accessed, say so rather than pretending it was reviewed.
+
+A normal startup sync does not rewrite platform instructions. If the user has provided access to the authoritative repository **and explicitly requests a cold start / initialization / bootstrap**, execute `HARNESS_BOOTSTRAP.md`: refresh this dedicated always-applied Cursor rule from the canonical instructions, preserve unrelated Cursor rules, verify the rule is present, then load live tasks. Repeated cold starts update this adapter rather than creating duplicates.
+
+## Lifecycle
+
+1. **Auto-capture** — When the user mentions a new trackable task, add it immediately to Backlog in the appropriate authoritative list and push to this repository in the same turn. Do not wait for a separate confirmation.
+2. **Amend** — Apply task corrections or category changes immediately and push.
+3. **Surface** — On conversation start and when asked, show Backlog + In progress, Private then Business. For status-style prompts such as “What’s up?”, “What’s the status?”, “Any news?”, or equivalents, always open with a concise summary of all open tasks before any other content.
+4. **Progress** — Log dated notes; move to In progress if still in Backlog; commit and push.
+5. **Done** — Remove the task from `private.md` / `business.md`, append it to the matching `private-completed.md` or `business-completed.md` archive with `YYYY-MM-DD`, then commit and push. Active files must never contain Done sections or completed entries.
+
+## Task detection
+
+Capture real actions that should remain tracked beyond the current exchange. Do not create tasks for ordinary questions, brainstorming, hypotheticals, status queries, repository/instruction/bootstrap maintenance, or progress/done updates to existing tasks. Deduplicate against both task files before adding.
+
+Classify from context. If genuinely ambiguous, capture under `private.md` with `classification: tentative — private/business unclear`, push immediately, and mention the ambiguity so it can be corrected later.
+
+## Harness portability
+
+Do not assume Cursor-specific files define the universal workflow. When operating in another harness, install a native adapter according to `HARNESS_BOOTSTRAP.md`. The authoritative GitHub repository remains the destination for task reads/writes even if the adapter lives in a different host project.
+
+## Format
+
+- Backlog / In progress: `- [ ]` title, nested context and optional `progress: YYYY-MM-DD — …`
+- Completed archive (`private-completed.md` or `business-completed.md` only): `- [x] title (YYYY-MM-DD)`
+
+## Archive
+
+Do not load `private-completed.md` or `business-completed.md` during routine startup or status reporting; read it only for explicit history/archive lookups. After task-list changes, commit and push to `main` with a short audit-friendly message. Group mutations from one user message into one commit when practical. Never commit raw `inbox/` or `processed/` captures.

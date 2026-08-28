@@ -1,0 +1,5 @@
+.DS_Store
+inbox/*
+!inbox/.gitkeep
+processed/*
+!processed/.gitkeep
