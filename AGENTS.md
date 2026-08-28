@@ -4,6 +4,14 @@ Personal and business task dump. Markdown task lists are the source of truth; th
 
 Use this repo as a **GitHub template** when you want remote sync: create your own copy, then point your preferred agent harness at that copy. Do not commit personal tasks back to the public template. If you do not use GitHub, cold start can still set up a local or artifact mirror of the same layout.
 
+**Setup one-liner** (host harness chat):
+
+```text
+review https://github.com/JPilsinger/opendump and start the coldstart procedure.
+```
+
+That request is enough to start cold start from the public template (or substitute the user’s own opendump URL/checkout).
+
 ## Layout
 
 Reference shape of an opendump store (files, or the same sections inside a durable artifact):
@@ -70,7 +78,7 @@ A normal startup sync reads the store and tasks. It does **not** silently rewrit
 
 ## Harness-independent cold start
 
-When the user explicitly asks for a **cold start**, initialization, bootstrap from opendump, or equivalent, execute `HARNESS_BOOTSTRAP.md` before normal task handling.
+When the user explicitly asks for a **cold start**, initialization, bootstrap from opendump, sends the setup one-liner above, or equivalent, execute `HARNESS_BOOTSTRAP.md` before normal task handling.
 
 Cold start selects and **locks** a store mode, installs a derived adapter that states that mode with no ambivalence, verifies persistence when possible, then loads and surfaces live tasks.
 

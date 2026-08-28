@@ -2,20 +2,34 @@
 
 Open-source place to dump and track tasks. Markdown lists are the source of truth; your agent (Cursor, Claude, ChatGPT, OpenCode, …) catches, progresses, and archives them across harnesses.
 
+## About
+
+opendump is a harness-portable task dump: you talk to your agent, it captures personal and work tasks into a simple markdown layout, and persists them to GitHub when it can — or to local files / a durable artifact when it cannot. Use the public repo as a GitHub template, or cold-start from the URL alone.
+
 **Preferred store:** GitHub (sync + history). Cold start can also lock **local files** or a **durable artifact** (e.g. Canvas) if you do not use GitHub. Chat-only harnesses cannot track reliably — the agent should say so and help you set up something better.
 
-## Use as a template (GitHub)
+## Setup (one-liner)
 
-1. On GitHub: **Use this template** → create your own repository (keep it private if your tasks are personal).
-2. Clone your new repo over SSH and open it in your preferred agent harness.
-3. Tell the agent to **cold start** / **bootstrap opendump** so it installs a native adapter with **store mode locked to github**.
-4. Talk normally — trackable work is auto-captured into `private.md` / `business.md` and pushed.
+In your host harness chat, send:
+
+```text
+review https://github.com/JPilsinger/opendump and start the coldstart procedure.
+```
+
+That is enough to begin. The agent should review the template, run the cold-start protocol, lock a single store mode, and install host project instructions.
+
+Optional GitHub path if you want your own remote from day one:
+
+1. **Use this template** → create your repo (private is fine for personal tasks).
+2. Clone it and open it in the harness — or keep working elsewhere and point cold start at your repo.
+3. Send the same one-liner (or cold-start against your clone).
+4. Talk normally — trackable work is auto-captured and persisted per the locked mode.
 
 Do not commit your personal tasks back to the public template.
 
 ## Without GitHub
 
-Say **cold start** in your harness. The agent should:
+The same one-liner still applies. The agent should:
 
 1. Prefer GitHub and offer to help connect or create a repo.
 2. If you decline or cannot use GitHub — set up a **local markdown mirror** or a **durable artifact** with the same task sections, and lock that mode in project instructions (no “GitHub or local” ambivalence).
@@ -48,7 +62,7 @@ Task files start empty. Treat your instance as sensitive if you put real life/wo
 
 ## Contributing
 
-Improvements to workflow docs and adapters belong in the public template. Keep example task lists empty of real personal data.
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md). Fork and adapt freely; ideas that improve the shared template are welcome.
 
 ## License
 

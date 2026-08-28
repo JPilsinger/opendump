@@ -14,9 +14,15 @@ If a derived adapter conflicts with `AGENTS.md` or this file on workflow semanti
 
 ## Cold-start trigger
 
-Run this protocol when the user explicitly requests initialization, for example **“cold start”**, **“initialize cold start”**, **“bootstrap opendump”**, **“initialize from opendump”**, or equivalent language.
+Run this protocol when the user explicitly requests initialization. The **preferred one-liner** (host harness chat) is:
 
-Cold start does **not** require that GitHub already work. Detect capabilities, choose a mode (with the user when needed), then install the adapter. Do not silently rewrite another project's instructions without that explicit request.
+```text
+review https://github.com/JPilsinger/opendump and start the coldstart procedure.
+```
+
+Equivalent triggers also count: **“cold start”**, **“initialize cold start”**, **“bootstrap opendump”**, **“initialize from opendump”**, or the same request naming another opendump URL/checkout the user provides.
+
+When the one-liner points at the public template, review that repository (or a reachable checkout), then execute this protocol. Cold start does **not** require that the user already has their own GitHub repo. Detect capabilities, choose a mode (with the user when needed), then install the adapter. Do not silently rewrite another project's instructions without that explicit request.
 
 ## Capability ladder and mode selection
 

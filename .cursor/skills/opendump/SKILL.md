@@ -17,7 +17,7 @@ description: >-
 - Persist: commit + push same turn
 
 1. At conversation start, honor the locked mode above. Read `opendump.config.md` if present, then `AGENTS.md` and `HARNESS_BOOTSTRAP.md`, then `private.md` and `business.md`. Do not rely on stale chat context if the store is available.
-2. On explicit **cold start / initialization / bootstrap**, execute `HARNESS_BOOTSTRAP.md`: capability ladder → confirm exactly one mode → update the native adapter so mode/location are unambiguous (no “if GitHub else local” branching) → verify → load live tasks.
+2. On explicit **cold start / initialization / bootstrap**, or `review https://github.com/JPilsinger/opendump and start the coldstart procedure.` (or another opendump URL/checkout the user names), execute `HARNESS_BOOTSTRAP.md`: capability ladder → confirm exactly one mode → update the native adapter so mode/location are unambiguous (no “if GitHub else local” branching) → verify → load live tasks.
 3. This Cursor skill/rule pair is derived. Do not use it as the upstream specification for Claude, ChatGPT, OpenCode, or another harness.
 4. New trackable task → immediately add to Backlog in `private.md` / `business.md` in the locked store and persist per mode. No separate confirmation step.
 5. Before adding, deduplicate against Backlog + In progress in both lists. Corrections update the existing item.

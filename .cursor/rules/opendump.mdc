@@ -18,7 +18,7 @@ alwaysApply: true
 
 At the start of every conversation in this project, read `opendump.config.md` (if present), `AGENTS.md`, `HARNESS_BOOTSTRAP.md`, `private.md`, and `business.md` from this repository before relying on prior chat context. If the locked store cannot be accessed, say so rather than pretending it was reviewed.
 
-A normal startup sync does not rewrite platform instructions. On explicit **cold start / initialization / bootstrap**, execute `HARNESS_BOOTSTRAP.md`: run the capability ladder, lock exactly one store mode, refresh this rule (or the host adapter) with that mode only, preserve unrelated Cursor rules, verify the rule is present and unambiguous, then load live tasks. Repeated cold starts update this adapter rather than creating duplicates.
+A normal startup sync does not rewrite platform instructions. On explicit **cold start / initialization / bootstrap**, or the one-liner `review https://github.com/JPilsinger/opendump and start the coldstart procedure.` (or another opendump URL/checkout the user names), execute `HARNESS_BOOTSTRAP.md`: run the capability ladder, lock exactly one store mode, refresh this rule (or the host adapter) with that mode only, preserve unrelated Cursor rules, verify the rule is present and unambiguous, then load live tasks. Repeated cold starts update this adapter rather than creating duplicates.
 
 ## Lifecycle
 

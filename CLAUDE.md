@@ -12,4 +12,4 @@ This file is a derived Claude Code adapter. `AGENTS.md` is authoritative for tas
 - location: this repository on `main` (the checkout / remote this project is using)
 - Persist: commit and push task mutations per `AGENTS.md`
 
-When the user explicitly requests a **cold start** and wants a different mode or host project, execute `HARNESS_BOOTSTRAP.md`, re-select a single mode, and rewrite instructions so only that mode remains. Preserve unrelated Claude project instructions if this bridge is merged into another project's `CLAUDE.md`.
+When the user explicitly requests a **cold start** (including `review https://github.com/JPilsinger/opendump and start the coldstart procedure.`) or wants a different mode or host project, execute `HARNESS_BOOTSTRAP.md`, re-select a single mode, and rewrite instructions so only that mode remains. Preserve unrelated Claude project instructions if this bridge is merged into another project's `CLAUDE.md`.
