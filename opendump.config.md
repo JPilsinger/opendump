@@ -1,25 +1,28 @@
 # opendump config
 
-- role: public-upstream-template
-- store: none (not a personal task store)
+- role: template-seed
+- initialized: false
+- store: none
 - upstream: JPilsinger/opendump
-- task-writes: forbidden
-- locked: 2026-08-28
 
-This tree is the **public template**. Agents must not capture or push user tasks here.
+This file is copied verbatim by GitHub's **Use this template** flow. It therefore MUST NOT be treated as proof that the current repository is the public upstream.
 
-For a real installation, cold start must lock a **user-owned** store:
+Repository role is determined structurally during cold start:
 
-- `github` → repo created via **Use this template** (never `JPilsinger/opendump` as the write target)
-- or `local-files` / `artifact` per `HARNESS_BOOTSTRAP.md`
+- if the actual current repository is `JPilsinger/opendump`, it is the public upstream template and user task writes are forbidden;
+- if the actual current repository is different, this seed means the template copy is uninitialized and must be replaced with its real locked binding.
 
-After you create your own instance, replace this file with your lock, for example:
+A successfully initialized file/GitHub instance replaces this seed with, for example:
 
 ```markdown
 # opendump config
 
+- initialized: true
 - store: github
 - location: <your-user>/<your-opendump-repo>@main
 - harness: <harness>
 - locked: YYYY-MM-DD
+- upstream: JPilsinger/opendump
 ```
+
+See `HARNESS_BOOTSTRAP.md` for the normative repository-role, binding, and verification rules.

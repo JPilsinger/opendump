@@ -4,13 +4,22 @@
 
 ## Claude Code bridge
 
-This file is a derived Claude Code adapter for the **public upstream template**. `AGENTS.md` is authoritative for task workflow behavior and `HARNESS_BOOTSTRAP.md` is authoritative for cold-start translation. Do not fork the workflow here.
+This file is a **derived template-seed adapter**. `AGENTS.md` is authoritative for normal task workflow behavior; `HARNESS_BOOTSTRAP.md` is authoritative for initialization.
 
-### Not a personal store
+Because GitHub template creation copies this file verbatim, do **not** infer repository role from this file alone.
 
-- role: `public-upstream-template` (`JPilsinger/opendump`)
-- **task-writes: forbidden** — never commit/push user tasks, progress, or completions to this repository
-- On cold start or first capture: create or connect a **user-owned** repo from this template (or lock `local-files` / `artifact`), then put mode + that location in the **host** project instructions
-- Review this repo for workflow docs only
+### Repository identity
 
-When the user sends `review https://github.com/JPilsinger/opendump and start the coldstart procedure.` (or equivalent), execute `HARNESS_BOOTSTRAP.md`, lock a single **user-owned** store, and rewrite host instructions so only that mode remains. Preserve unrelated Claude project instructions if this bridge is merged into another project's `CLAUDE.md`.
+- Determine the actual current repository identity during cold start.
+- If it is exactly `JPilsinger/opendump`, this checkout is the public upstream workflow/template reference and user task writes are forbidden.
+- If it is a different repository copied from the template, treat the inherited seed/config as `UNINITIALIZED`; do not misclassify it as the public upstream.
+
+### Cold start
+
+When the user sends `review https://github.com/JPilsinger/opendump and start the coldstart procedure.` (or equivalent), execute the normative state machine in `HARNESS_BOOTSTRAP.md`.
+
+Cold start is successful only at `READY`: environment identified → capabilities established → exactly one store selected → concrete store bound → native adapter actually installed → adapter/store read back and verified → live tasks loaded.
+
+If this seed is being used inside a user-owned opendump instance, successful cold start MUST replace/update the host's persistent opendump instructions with exactly one concrete `store` + `location`. Preserve unrelated Claude project instructions.
+
+Generating instructions that still require manual installation is `BLOCKED`, not successful initialization.
