@@ -99,6 +99,8 @@ github:
   repo_write: <true|false>
   repo_create: <true|false>
   template_create: <true|false>
+  setup_available: <true|false>
+  setup_user_action: <concrete action or none>
 
 files:
   durable_read: <true|false>
@@ -110,6 +112,8 @@ artifact:
 ```
 
 A capability is `true` only when the current environment/session exposes a usable way to perform it. When a capability cannot be proven and is required for a candidate mode, treat it as unavailable until proven otherwise.
+
+`github.setup_available` is `true` only when the current host/session exposes a **concrete, actionable path** by which the user can enable the missing GitHub capability without changing to another harness, such as connecting/authenticating GitHub, approving repository access, creating/selecting a template instance through an exposed UI, or completing an equivalent host-supported setup action. If true, `setup_user_action` MUST name that exact action. Mere theoretical GitHub support or generic advice to "set up GitHub" is not enough.
 
 Transition to `CAPABILITIES_ESTABLISHED` only after enough facts exist to execute store selection mechanically.
 
@@ -146,14 +150,27 @@ If a binding exists but is invalid or contradictory, do not silently choose one 
 
 If no valid existing binding is present, select the store using this procedure. Do not ask the user to choose merely because multiple technical modes are available. A user preference stated before or during initialization overrides the default precedence if it names a viable mode.
 
+### GitHub candidate resolution
+
+A GitHub repository is a resolvable opendump candidate only when at least one of these is true:
+
+1. the user explicitly supplied that repository/location;
+2. the current repository is a non-upstream template copy containing the expected opendump layout/seed metadata;
+3. an accessible repository contains an initialized opendump config whose `upstream` is `JPilsinger/opendump` and whose declared location matches itself.
+
+Do not guess a store from repository name similarity alone. If more than one candidate remains and none is distinguished by an existing valid binding or explicit user reference, enter `BLOCKED` with reason `github_store_selection_required` and present the concrete candidates.
+
+### Selection algorithm
+
 Evaluate in order:
 
-1. **Resolvable user-owned GitHub store** — If GitHub read/write capability exists and a specific user-owned opendump repository is already resolvable, select `github`.
-2. **Create user-owned GitHub store** — Else if the environment can create a user-owned repository from the template (direct template API, GitHub UI automation, CLI, or equivalent) and then read/write it, create it and select `github`.
-3. **GitHub requires external action** — Else if GitHub is the preferred feasible path but requires a user action the agent cannot perform (authentication, connection approval, template creation, repository selection), enter `BLOCKED` with a concrete reason and exact next action. Do not silently fall through to a weaker mode unless the user explicitly declines GitHub or requests another mode.
-4. **Durable local files** — Else if durable file read/write capability exists, select `local-files`.
-5. **Durable artifact** — Else if a durable artifact can be read and written, select `artifact`.
-6. **No durable store** — Else enter `UNSUPPORTED`.
+1. **Explicit viable user preference** — If the user explicitly requested `github`, `local-files`, or `artifact` and that mode is currently viable, select it and skip lower-priority alternatives.
+2. **Resolvable user-owned GitHub store** — Else if GitHub read/write capability exists and exactly one user-owned opendump repository is resolvable under the candidate rules above, select `github`.
+3. **Create user-owned GitHub store** — Else if the environment can create a user-owned repository from the template and then read/write it, create it and select `github`.
+4. **Concrete GitHub setup path exists** — Else if `github.setup_available == true` and the user has not explicitly declined GitHub, enter `BLOCKED` with the concrete `setup_user_action`. Do not silently fall through to a weaker mode.
+5. **Durable local files** — Else if durable file read/write capability exists, select `local-files`.
+6. **Durable artifact** — Else if a durable artifact can be read and written, select `artifact`.
+7. **No durable store** — Else enter `UNSUPPORTED`.
 
 `github` MUST never bind to `JPilsinger/opendump` or another known published upstream template as the user's task database.
 
