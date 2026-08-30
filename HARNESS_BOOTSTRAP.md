@@ -18,9 +18,11 @@ Initialization prose and examples never override normative requirements.
 2. `AGENTS.md` is authoritative for normal task workflow semantics and store-mode rules.
 3. `HARNESS_BOOTSTRAP.md` is authoritative for initialization, capability detection, store selection, adapter installation, and verification.
 4. The locked user-owned store is authoritative for task state.
-5. Host-native instruction surfaces contain derived adapters. Their locked `store` and `location` determine where that host reads/writes, but they MUST NOT redefine workflow semantics.
+5. The installed host-native adapter is the **sole persistent binding record** for that host environment. Its `store` and `location` determine where that host reads/writes, but it MUST NOT redefine workflow semantics.
 
-If a derived adapter conflicts with canonical workflow semantics, regenerate it. If its store binding is absent, ambiguous, or invalid, initialization is not complete.
+If a generated adapter conflicts with canonical workflow semantics, regenerate it. If its store binding is absent, ambiguous, or invalid, initialization is not complete.
+
+The opendump store MUST NOT contain a second environment-specific binding manifest. Repository names, filesystem paths, host identity, branch names, and adapter bindings belong to the host adapter or are discovered from the current environment, not duplicated into canonical task state.
 
 ## Cold-start trigger
 
@@ -65,13 +67,13 @@ business-completed.md
 
 For `artifact`, the artifact MUST expose equivalent logical collections for Private/Business open state and Private/Business completed history.
 
-`AGENTS.md`, `HARNESS_BOOTSTRAP.md`, and `opendump.config.md` are protocol/binding metadata for file/GitHub modes; they are not additional task-state collections.
+For file/GitHub stores, `AGENTS.md` and `HARNESS_BOOTSTRAP.md` accompany the task state as canonical protocol documents. They are not task-state collections and they do not record the active host binding.
 
 Source-material transport or lifecycle mechanisms — including watched directories, upload queues, staging folders, source archives, acknowledgement ledgers, and processed-source directories — are not part of the canonical opendump schema and MUST NOT be required for a binding to be valid.
 
 ## Initialization state machine
 
-Cold start MUST progress through these states in order. A state may perform multiple operations, but a later state MUST NOT be claimed until the current state's postconditions are satisfied.
+Cold start MUST progress through these states in order. A later state MUST NOT be claimed until the current state's postconditions are satisfied.
 
 | State | Required outcome |
 |---|---|
@@ -81,7 +83,7 @@ Cold start MUST progress through these states in order. A state may perform mult
 | `STORE_SELECTED` | Exactly one store mode is selected by the deterministic selection procedure |
 | `STORE_BOUND` | A concrete store exists and satisfies the mode's binding gate |
 | `ADAPTER_INSTALLED` | Host persistent instructions contain exactly one concrete opendump binding |
-| `VERIFIED` | Store and adapter are read back and match the intended binding |
+| `VERIFIED` | The adapter is read back and the bound store is independently verified |
 | `READY` | Live open tasks are loaded from the verified store |
 
 Two explicit non-success terminal states also exist:
@@ -89,7 +91,7 @@ Two explicit non-success terminal states also exist:
 - `BLOCKED` — the environment could support initialization, but a required external/user action or unavailable permission prevents the next required transition.
 - `UNSUPPORTED` — no durable writable store/instruction arrangement exists that can provide reliable tracking.
 
-`READY` is the **only successful terminal state**. There is no partial-success state. Producing instructions for manual installation, creating a repository without installing an adapter, or writing an adapter without read-back verification MUST NOT be described as successful initialization.
+`READY` is the **only successful terminal state**. There is no partial-success state.
 
 ## Phase 1 — environment identification
 
@@ -151,59 +153,68 @@ artifact:
 
 A capability is `true` only when the current environment/session exposes a usable way to perform it. When a capability cannot be proven and is required for a candidate mode, treat it as unavailable until proven otherwise.
 
-`github.setup_available` is `true` only when the current host/session exposes a **concrete, actionable path** by which the user can enable the missing GitHub capability without changing to another host, such as connecting/authenticating GitHub, approving repository access, creating/selecting a template instance through an exposed UI, or completing an equivalent host-supported setup action. If true, `setup_user_action` MUST name that exact action. Mere theoretical GitHub support or generic advice to "set up GitHub" is not enough.
+`github.setup_available` is `true` only when the current host/session exposes a **concrete, actionable path** by which the user can enable the missing GitHub capability without changing to another host. If true, `setup_user_action` MUST name that exact action. Mere theoretical support or generic advice to "set up GitHub" is not enough.
 
 Transition to `CAPABILITIES_ESTABLISHED` only after enough facts exist to execute store selection mechanically.
 
 ## Repository-role determination
 
-Repository role MUST be derived from the **actual repository identity**, not solely from inherited template files.
+Repository role MUST be derived from the **actual repository identity**, never from copied metadata.
 
 Let `UPSTREAM = JPilsinger/opendump`.
 
 1. If the current repository full name equals `UPSTREAM`, its role is `public-upstream-template` and user task writes are forbidden.
-2. If the current repository full name does **not** equal `UPSTREAM` and it contains inherited seed metadata such as `role: template-seed`, `initialized: false`, or legacy `role: public-upstream-template`, treat that metadata as an **uninitialized template copy**, not evidence that the new repository is the public upstream.
-3. During successful initialization of a user-owned file/GitHub store, replace inherited seed/legacy metadata with the actual locked binding.
-4. Never use repository name similarity, fork/template ancestry, copied text, or generated adapter paths as sufficient evidence that a repository is the public upstream; compare concrete repository identity when available.
+2. Any different repository with the canonical opendump structural signature is not the public upstream merely because its files were copied from the template.
+3. Never use repository name similarity, fork/template ancestry, copied text, or generated adapter paths as sufficient evidence that a repository is the public upstream; compare concrete repository identity when available.
 
-This rule exists because GitHub template creation copies files verbatim.
+The public template requires no seed manifest. GitHub template creation may copy the canonical files verbatim; actual repository identity determines whether the checkout is the upstream reference or a candidate user-owned store.
 
 ## Existing-binding rule
 
-Before selecting a new store, inspect the host adapter and `opendump.config.md` when accessible.
+Before selecting a new store, inspect the installed host adapter when available.
 
 An existing binding is valid only if all are true:
 
 - exactly one `store` mode is declared;
 - exactly one concrete `location` is declared when the mode requires one;
 - the declared store satisfies its binding gate below;
-- `github` location is not `JPilsinger/opendump`;
-- host adapter and store config do not materially disagree.
+- a `github` location is not `JPilsinger/opendump` or another known published upstream template.
 
-If a valid existing binding is present, reuse it. Do not select another store merely because another mode is preferable.
+If a valid existing adapter binding is present, reuse it. Do not select another store merely because another mode is preferable.
 
-If a binding exists but is invalid or contradictory, do not silently choose one side. Treat cold start as uninitialized and establish a new single binding using this protocol; preserve task data from the old store unless the user explicitly requests migration/deletion.
+If an adapter binding exists but is invalid, ambiguous, or points to an inaccessible store, do not silently choose another store. Treat cold start as uninitialized, preserve any recoverable canonical task state, and establish one new binding using this protocol.
 
 ## Phase 3 — deterministic store selection
 
-If no valid existing binding is present, select the store using this procedure. Do not ask the user to choose merely because multiple technical modes are available. A user preference stated before or during initialization overrides the default precedence if it names a viable mode.
+If no valid existing adapter binding is present, select the store using this procedure. Do not ask the user to choose merely because multiple technical modes are available. A user preference stated before or during initialization overrides the default precedence if it names a viable mode.
 
-### GitHub candidate resolution
+### GitHub structural signature and candidate resolution
+
+A file/GitHub opendump store has this structural signature:
+
+- `private.md`
+- `business.md`
+- `private-completed.md`
+- `business-completed.md`
+- `AGENTS.md`
+- `HARNESS_BOOTSTRAP.md`
 
 A GitHub repository is a resolvable opendump candidate only when at least one of these is true:
 
 1. the user explicitly supplied that repository/location;
-2. the current repository is a non-upstream template copy containing the canonical four task-state files plus opendump seed/binding metadata;
-3. an accessible repository contains an initialized opendump config whose `upstream` is `JPilsinger/opendump` and whose declared location matches itself.
+2. the current repository is non-upstream and has the structural signature;
+3. an accessible, user-owned, writable repository has the structural signature and its canonical protocol documents identify it as opendump-compatible.
 
-Do not require or infer intake/staging directories when resolving a candidate. Do not guess a store from repository name similarity alone. If more than one candidate remains and none is distinguished by an existing valid binding or explicit user reference, enter `BLOCKED` with reason `github_store_selection_required` and present the concrete candidates.
+The installed adapter, when valid, outranks structural discovery. Structural matching MUST NOT override an explicit user reference.
+
+Do not guess a store from repository name similarity alone. If more than one structurally valid candidate remains and none is distinguished by an existing valid adapter or explicit user reference, enter `BLOCKED` with reason `github_store_selection_required` and present the concrete candidates.
 
 ### Selection algorithm
 
 Evaluate in order:
 
 1. **Explicit viable user preference** — If the user explicitly requested `github`, `local-files`, or `artifact` and that mode is currently viable, select it and skip lower-priority alternatives.
-2. **Resolvable user-owned GitHub store** — Else if GitHub read/write capability exists and exactly one user-owned opendump repository is resolvable under the candidate rules above, select `github`.
+2. **Resolvable user-owned GitHub store** — Else if GitHub read/write capability exists and exactly one user-owned opendump repository is resolvable, select `github`.
 3. **Create user-owned GitHub store** — Else if the environment can create a user-owned repository from the template and then read/write it, create it and select `github`.
 4. **Concrete GitHub setup path exists** — Else if `github.setup_available == true` and the user has not explicitly declined GitHub, enter `BLOCKED` with the concrete `setup_user_action`. Do not silently fall through to a weaker mode.
 5. **Durable local files** — Else if durable file read/write capability exists, select `local-files`.
@@ -226,12 +237,11 @@ All MUST be true:
 - repository exists;
 - repository is readable in the current environment;
 - repository is writable in the current environment;
-- repository is not `JPilsinger/opendump`;
-- `private.md`, `business.md`, `private-completed.md`, and `business-completed.md` exist or are created;
-- `AGENTS.md`, `HARNESS_BOOTSTRAP.md`, and `opendump.config.md` exist or are materialized from the canonical template as needed for a file/GitHub installation;
+- repository is user-owned or otherwise explicitly authorized by the user for task storage;
+- repository is not `JPilsinger/opendump` or another known published upstream template;
+- the four canonical task-state files exist or are created;
+- `AGENTS.md` and `HARNESS_BOOTSTRAP.md` exist or are materialized from the canonical template;
 - concrete branch/default ref is known or resolvable.
-
-No intake, staging, upload, or processed-source directory is required by this gate.
 
 Canonical location format:
 
@@ -244,12 +254,10 @@ Canonical location format:
 All MUST be true:
 
 - concrete directory/path is known;
-- `private.md`, `business.md`, `private-completed.md`, and `business-completed.md` exist or are created;
+- the four canonical task-state files exist or are created;
 - the four task-state files are readable and writable;
-- `AGENTS.md`, `HARNESS_BOOTSTRAP.md`, and `opendump.config.md` exist or are materialized as needed for the file-based installation;
+- `AGENTS.md` and `HARNESS_BOOTSTRAP.md` exist or are materialized for the file-based installation;
 - location is durable beyond the current response/session according to the host's file model.
-
-No intake, staging, upload, or processed-source directory is required by this gate.
 
 ### `artifact` binding gate
 
@@ -262,7 +270,7 @@ All MUST be true:
 - artifact is durable according to the host;
 - it mirrors Private + Business Backlog/In progress and Private + Business completed history semantics.
 
-Transport/staging sections are not required.
+Transport/staging sections and environment-specific binding metadata inside the store are not required.
 
 ### `unsupported`
 
@@ -270,32 +278,11 @@ No fake store/location may be created. Reliable capture MUST remain disabled.
 
 Transition to `STORE_BOUND` only after the selected mode's gate passes.
 
-## Phase 5 — record the binding
+## Phase 5 — generate and install the host adapter
 
-For `github` and `local-files`, the store MUST contain `opendump.config.md` with the actual binding. Replace template seed or legacy upstream metadata during initialization.
+The concrete binding determined in Phase 4 is persisted **only in the host-native adapter**. Do not write a duplicate binding manifest into the opendump store.
 
-Canonical form:
-
-```markdown
-# opendump config
-
-- initialized: true
-- store: github
-- location: <owner>/<repo>@<branch>
-- harness: <identified host>
-- locked: YYYY-MM-DD
-- upstream: JPilsinger/opendump
-```
-
-Use the equivalent concrete path for `local-files`. For `artifact`, the adapter MUST record the artifact identity; record equivalent metadata inside the artifact when the host supports it without harming the task-state collections.
-
-Credentials, access tokens, private keys, cookies, and connector secrets MUST NOT be written into configuration or persistent instructions.
-
-## Phase 6 — generate and install the host adapter
-
-Use the native persistent instruction surface discovered in Phase 1. Do not select a path or syntax from examples, prior knowledge of another product, or files that happened to exist in the public template.
-
-The generated adapter MUST:
+Use the native persistent instruction surface discovered in Phase 1. The generated adapter MUST:
 
 - identify itself as opendump-derived;
 - reference `AGENTS.md` / `HARNESS_BOOTSTRAP.md` when those canonical files are accessible, or faithfully mirror their minimum semantics when they are not;
@@ -331,7 +318,7 @@ Generating the payload is not installation. After the user installs it, cold sta
 
 Transition to `ADAPTER_INSTALLED` only after the persistent surface actually contains the intended adapter.
 
-## Phase 7 — mandatory verification
+## Phase 6 — mandatory verification
 
 Verification is a hard gate, not a best-effort step.
 
@@ -340,17 +327,18 @@ The agent MUST:
 1. Read the native persistent instruction surface back after installation.
 2. Parse/read the installed opendump binding.
 3. Confirm exactly one mode and one concrete location.
-4. Confirm the read-back binding equals the intended binding.
-5. Read `opendump.config.md` for file/GitHub modes and confirm it agrees with the adapter.
-6. Re-read enough of the bound store to prove current read access, including the canonical open task-state collections.
-7. Confirm the canonical task-state schema is present for the selected mode; do not require transport/staging directories.
-8. Where write verification has not already occurred during materialization/config update, perform a non-destructive write-capability verification appropriate to the host or rely on a successful configuration write just performed.
+4. Confirm the read-back binding equals the intended binding from Phase 4.
+5. Resolve that location independently and re-read enough of the bound store to prove current read access.
+6. Confirm the canonical task-state schema is present for the selected mode.
+7. For GitHub/file modes, confirm the canonical protocol documents are accessible.
+8. Verify current write capability using a successful materialization/write already performed, authoritative permission evidence, or a safe reversible probe appropriate to the host.
+9. Confirm the store does not need any secondary binding/config manifest for normal operation.
 
 If any verification fails, do not claim installation succeeded. Repair and re-verify when possible; otherwise enter `BLOCKED` with the failing gate and reason.
 
 Transition to `VERIFIED` only after all applicable checks pass.
 
-## Phase 8 — load live state and become ready
+## Phase 7 — load live state and become ready
 
 After verification:
 
@@ -379,7 +367,7 @@ The user-facing response MAY be conversational and does not need to print this Y
 
 ## Blocked and unsupported results
 
-When blocked, state the exact phase/reason and the minimum required next action. Example semantic result:
+When blocked, state the exact state/reason and the minimum required next action. Example semantic result:
 
 ```yaml
 opendump_initialization:
@@ -401,12 +389,14 @@ At startup:
 1. Read the installed host adapter and identify the locked store/location.
 2. Read live open tasks from that store.
 3. When file/GitHub canonical workflow docs are accessible, follow current `AGENTS.md` semantics.
-4. If the bound store is inaccessible, report the failure and stop claiming persistence. Do not switch stores silently.
-5. Run this full cold-start protocol again only when explicitly requested, when the binding is invalid, or when the user requests a mode/location change.
+4. If the adapter is missing, ambiguous, or invalid, do not infer the active store from a copied config file; run cold start or report the missing binding.
+5. If the bound store is inaccessible, report the failure and stop claiming persistence. Do not switch stores silently.
+6. Run this full cold-start protocol again only when explicitly requested, when the binding is invalid, or when the user requests a mode/location change.
 
 ## Minimum semantics every generated adapter must preserve
 
 - Exactly one bound store mode and concrete location.
+- The adapter is the sole persistent binding record for that host environment.
 - Public upstream is never a user task write target.
 - Startup reads live tasks from the bound store.
 - Same-turn task mutations persist only to that store.
@@ -424,16 +414,16 @@ A mode/location change is an explicit re-initialization operation.
 1. Preserve existing canonical task state.
 2. Materialize/copy it into the target store.
 3. Re-run store binding, adapter installation, and verification for the new target.
-4. Replace the old binding only after the new one verifies successfully.
+4. Replace the old adapter binding only after the new target verifies successfully.
 5. Never operate two authoritative stores in parallel.
 
-Source-material staging directories or processed-source archives are not required to migrate because they are outside canonical task state.
+No store-side binding manifest needs migration because environment-specific binding state belongs only to the adapter.
 
 ## Maintenance rule
 
 - Change normal task semantics in `AGENTS.md`.
 - Change initialization semantics in this file.
-- Keep the public template free of committed host-specific adapters.
+- Keep the public template free of committed host-specific adapters and environment-specific binding manifests.
 - Keep source-ingestion transport/staging mechanisms outside the canonical store schema.
 - When an initialized user environment contains a generated adapter, regenerate that downstream adapter from the canonical documents after relevant semantic changes.
 - Never copy a generated adapter into the public template as a compatibility shortcut.
