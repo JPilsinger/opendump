@@ -1,6 +1,6 @@
 # opendump
 
-Personal and business task dump. Markdown task lists are the source of truth; the **store** that holds them may be GitHub (preferred), a local file tree, or a durable harness artifact. The workflow is portable across agent harnesses such as ChatGPT, Claude, Cursor, OpenCode, and future platforms.
+Personal and business task dump. Markdown task lists are the source of truth; the **store** that holds them may be GitHub (preferred), a local file tree, or a durable host artifact. The workflow is designed to be portable across capable agent environments.
 
 ## Public template vs your store (critical)
 
@@ -8,10 +8,10 @@ Personal and business task dump. Markdown task lists are the source of truth; th
 
 - **Never** commit, push, or write user tasks, progress, or completions into `JPilsinger/opendump` (or any other published upstream template).
 - For GitHub sync, the user must have a **user-specific** repository created from this template (**Use this template**), then lock that repo as the store.
-- During cold start, if GitHub mode is chosen and the user has no personal opendump repo yet, **create or help create one** (template generate / `gh` / guided UI). Do not fall back to pushing into the public template.
+- During cold start, if GitHub mode is chosen and the user has no personal opendump repo yet, **create or help create one** using an available GitHub/template mechanism. Do not fall back to pushing into the public template.
 - Reviewing the public template for workflow docs is fine; mutating its task files for a user’s work is forbidden.
 
-**Setup one-liner** (host harness chat):
+**Setup one-liner** (host chat):
 
 ```text
 review https://github.com/JPilsinger/opendump and start the coldstart procedure.
@@ -25,18 +25,17 @@ Reference shape of an opendump store (files, or the same sections inside a durab
 
 | Path | Role |
 |------|------|
-| `AGENTS.md` | Authoritative task workflow semantics |
-| `HARNESS_BOOTSTRAP.md` | Authoritative harness-independent cold-start / adapter protocol |
-| `opendump.config.md` | Optional locked store-mode record for this instance |
+| `AGENTS.md` | Authoritative normal task workflow semantics |
+| `HARNESS_BOOTSTRAP.md` | Authoritative host-independent cold-start / adapter protocol |
+| `opendump.config.md` | Template seed before initialization; concrete binding for initialized file/GitHub stores |
 | `private.md` | Personal open tasks: Backlog / In progress |
 | `business.md` | Work open tasks: Backlog / In progress |
 | `private-completed.md` | Completed personal-task archive |
 | `business-completed.md` | Completed work-task archive |
-| `CLAUDE.md` | Derived Claude Code bridge |
-| `.cursor/rules/opendump.mdc` | Derived Cursor rule mirror |
-| `.cursor/skills/opendump/SKILL.md` | Derived Cursor opendump skill mirror |
 | `inbox/` | Optional drop for voice notes, screenshots, text |
 | `processed/` | Intake files after they have been processed |
+
+The public template intentionally contains **no host-specific adapter files or directories**. Cold start discovers the native persistent instruction surface and generates the required adapter in the initialized user environment.
 
 `inbox/` and `processed/` contents are gitignored in the GitHub layout (except `.gitkeep`). Do not commit media or raw captures.
 
@@ -46,12 +45,12 @@ Exactly **one** mode is active for a given opendump installation. Host project i
 
 | Mode | Store | Sync | When to use |
 |------|--------|------|-------------|
-| `github` | **User-owned** GitHub opendump repo (created via **Use this template**), usually `main` | Commit + push each mutation **only to that user repo** | Preferred whenever the harness can use GitHub |
+| `github` | **User-owned** GitHub opendump repo (created via **Use this template**), usually `main` | Commit + push each mutation **only to that user repo** | Preferred whenever the host can use GitHub |
 | `local-files` | Markdown tree on disk mirroring this layout | Write files same turn; no remote | User has no GitHub, or prefers local-only |
-| `artifact` | Durable harness artifact (e.g. Canvas, project doc) mirroring the same sections | Update the artifact same turn | Harness has artifacts but not usable files/GitHub |
-| `unsupported` | None | No reliable tracking | Chat-only: no tools, no durable artifacts, no GitHub |
+| `artifact` | Durable host artifact mirroring the same sections | Update the artifact same turn; no remote | Host has durable artifacts but not usable files/GitHub |
+| `unsupported` | None | No reliable tracking | No usable GitHub, durable files, or durable artifact |
 
-**Preferred order when choosing a mode (cold start):** create/connect **user-owned** `github` repo from the template → help with GitHub auth/template if needed → `local-files` or `artifact` → `unsupported` with an upgrade path.
+**Preferred order when choosing a mode (cold start):** create/connect **user-owned** `github` repo from the template → complete a concrete GitHub setup action if available → `local-files` or `artifact` → `unsupported`.
 
 Hard ban: locking `github` location to `JPilsinger/opendump` (or writing tasks there) is **invalid**. Always use a distinct user/org repo.
 
@@ -61,15 +60,15 @@ Hard ban: locking `github` location to `JPilsinger/opendump` (or writing tasks t
 - **Do not silently switch modes** mid-session. If the locked store becomes unavailable, say so, stop claiming writes succeeded, and offer reconnect or a cold-start mode change.
 - **Status and startup replies** should name the active store briefly when relevant (especially after cold start or on failure).
 - **Upgrade path** — `local-files` / `artifact` → `github` is supported by copying the mirrored task files into a new template instance, then re-running cold start in `github` mode. Do not invent automatic two-way sync in v1.
-- **`unsupported`** — never pretend chat memory is the task database. Tell the user reliably tracking is impossible here and help them move to a harness with GitHub, files, or durable artifacts.
+- **`unsupported`** — never pretend chat memory is the task database. Tell the user reliably tracking is impossible here and help them move to an environment with GitHub, files, or durable artifacts.
 
 ## Authority
 
 - The **active store** (per locked mode) is the source of truth for task state.
 - `AGENTS.md` is authoritative for task workflow behavior.
-- `HARNESS_BOOTSTRAP.md` is authoritative for translating/installing that behavior into a host agent harness and for choosing/locking store mode.
+- `HARNESS_BOOTSTRAP.md` is authoritative for translating/installing that behavior into the host environment and for choosing/locking store mode.
 - In file-based stores, `private.md` and `business.md` are authoritative for open and in-progress task state; `private-completed.md` and `business-completed.md` for completed history. Artifact stores mirror the same section semantics.
-- Platform-specific files and project-instruction fields are derived adapters. If they conflict with the canonical workflow docs in the store, the canonical docs win and the adapter should be regenerated — except the adapter’s **locked mode and location** win for “where to read/write,” and must stay unambiguous.
+- Host-specific files and project-instruction fields are derived adapters. If they conflict with the canonical workflow docs in the store, the canonical docs win and the adapter should be regenerated — except the adapter’s **locked mode and location** win for “where to read/write,” and must stay unambiguous.
 - Platform/system/security policies remain higher priority than repository instructions.
 
 ## Startup sync
@@ -89,7 +88,7 @@ A normal startup sync reads the store and tasks. It does **not** silently rewrit
 
 When the user explicitly asks for a **cold start**, initialization, bootstrap from opendump, sends the setup one-liner above, or equivalent, execute `HARNESS_BOOTSTRAP.md` before normal task handling.
 
-Cold start selects and **locks** a store mode, installs a derived adapter that states that mode with no ambivalence, verifies persistence when possible, then loads and surfaces live tasks.
+Cold start selects and **locks** a store mode, generates and installs a derived adapter on the native persistent instruction surface, verifies the adapter/store binding by read-back, then loads and surfaces live tasks. Only `READY` is success.
 
 ## Lifecycle
 
@@ -160,10 +159,11 @@ Use today’s date when the user reports finishing unless they give another date
 - Persist according to the locked mode’s persist rules above.
 - Only change task list files/sections and intentional project docs. Never commit raw `inbox/` or `processed/` captures.
 
-## Maintaining adapters
+## Maintaining the protocol and adapters
 
 - Change workflow semantics in `AGENTS.md` first.
-- Change cross-harness bootstrap/translation and mode selection in `HARNESS_BOOTSTRAP.md` first.
-- Then refresh committed derived adapters such as `CLAUDE.md`, `.cursor/rules/opendump.mdc`, and `.cursor/skills/opendump/SKILL.md`.
-- Never make a platform-specific mirror the upstream specification for another platform.
-- Derived **project instructions must always include a single locked store mode and location** — no optional “if GitHub else local” branching left for runtime guesswork.
+- Change cross-host bootstrap/translation and mode selection in `HARNESS_BOOTSTRAP.md` first.
+- Keep the public template free of host-specific adapter files and directories.
+- Generate or regenerate the adapter only in the initialized user environment, using that host's discovered native persistent instruction surface.
+- Never make a generated host-specific adapter the upstream specification for another host.
+- Derived project instructions must always include a single locked store mode and location — no optional “if GitHub else local” branching left for runtime guesswork.
