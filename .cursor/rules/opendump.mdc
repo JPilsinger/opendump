@@ -1,39 +1,37 @@
 ---
-description: opendump public template — cold start into a user-owned store; never push tasks here
+description: opendump template seed — deterministic cold start into one verified user-owned store
 alwaysApply: true
 ---
 
-# opendump (public upstream template)
+# opendump template seed
 
-`AGENTS.md` is authoritative for task workflow; `HARNESS_BOOTSTRAP.md` is authoritative for cold-start translation. This Cursor rule is a derived adapter for the **public template**, not a personal task store.
+`AGENTS.md` is authoritative for normal task workflow. `HARNESS_BOOTSTRAP.md` is authoritative for initialization. This rule is derived and is copied verbatim by GitHub template creation.
 
-## Critical: no task writes here
+## Determine repository role structurally
 
-- role: `public-upstream-template`
-- upstream: `JPilsinger/opendump`
-- **Never** add, amend, complete, commit, or push user tasks into this repository
-- Personal/shared task data belongs only in a **user-owned** store created from this template, or in locked `local-files` / `artifact` mode
+Do not infer role from this copied rule/config alone.
 
-## Locked behavior in this checkout
+- If the actual current repository identity is exactly `JPilsinger/opendump`, it is the public upstream reference and user task writes are forbidden.
+- If the current repository is different, inherited `template-seed`, `initialized: false`, or legacy upstream metadata means the copy is uninitialized, not read-only upstream.
 
-- Treat this repo as workflow reference + empty template layout
-- If the user wants tracking while this public repo is open: run cold start, create/connect **their** GitHub template instance (preferred), lock that location in host/project instructions, and write tasks **there**
-- If GitHub is declined: lock `local-files` or `artifact` elsewhere — still not into this public task files as “the” shared upstream database for random users
+## Cold start
 
-## Startup
+On the one-liner `review https://github.com/JPilsinger/opendump and start the coldstart procedure.` or equivalent, execute the state machine in `HARNESS_BOOTSTRAP.md` exactly.
 
-Read `opendump.config.md`, `AGENTS.md`, and `HARNESS_BOOTSTRAP.md`. Do not load empty public task lists as if they were the user’s work. On explicit cold start / the one-liner `review https://github.com/JPilsinger/opendump and start the coldstart procedure.`, execute `HARNESS_BOOTSTRAP.md`: capability ladder → **user-owned** store only → refresh host adapter with unambiguous mode/location → verify → continue.
+Initialization is successful only at `READY`:
 
-## Lifecycle (only against the locked user-owned store)
+1. identify host + native persistent instruction surface;
+2. establish actual capabilities;
+3. select exactly one store using the deterministic selection procedure;
+4. bind a concrete writable store;
+5. install one concrete host adapter (`store` + `location`, no fallback branching);
+6. read the adapter/store back and verify they agree;
+7. load live open tasks.
 
-1. **Auto-capture** — Backlog in the locked user store; push only if that store is the user’s `github` repo  
-2. **Amend / progress / done** — Same store only  
-3. **Surface** — From the locked store; status prompts open with all open tasks  
+`BLOCKED` and `UNSUPPORTED` are explicit non-success terminal states. A manual adapter payload is not installed until it is persisted and verified.
 
-## Task detection
+## Runtime after initialization
 
-Same rules as `AGENTS.md`. Deduplicate against the locked store. Never use this public repo as the write destination.
+Once a user instance is initialized, the generated host adapter must bind exactly one user-owned store. All capture, amend, progress, completion, status, and startup reads operate only against that binding per `AGENTS.md`.
 
-## Harness portability
-
-Install native adapters per `HARNESS_BOOTSTRAP.md` with a **single locked store mode**. Location must never be the public upstream template for task writes.
+Never silently switch stores. Never use `JPilsinger/opendump` as a user task write target.
