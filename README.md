@@ -23,23 +23,24 @@ review https://github.com/JPilsinger/opendump and start the coldstart procedure.
 
 3. The agent reviews the public template for workflow rules, identifies its own host/instruction surface and actual capabilities, then binds exactly one **user-owned** store.
 4. It generates the host-native adapter only after that discovery; the public template does not preinstall product-specific adapters.
-5. Cold start is successful only after the store and host adapter are both installed/read back, their binding agrees, and live open tasks have been loaded.
-6. Talk normally — trackable work is auto-captured into the verified store.
+5. The generated adapter records exactly one store mode and concrete location. OpenDump does not duplicate that environment-specific binding inside the task store.
+6. Cold start is successful only after the adapter has been installed/read back, the bound store has been independently verified, and live open tasks have been loaded.
+7. Talk normally — trackable work is auto-captured into the verified store.
 
-### Why `opendump.config.md` says `template-seed`
+### Template copies and repository identity
 
-GitHub's template flow copies the config verbatim. It therefore intentionally starts as **uninitialized seed metadata** rather than claiming that every copy is the public upstream.
+GitHub's template flow copies the canonical files verbatim. No seed/config manifest is required.
 
 During cold start the agent determines repository role from the **actual repository identity**:
 
 - exact `JPilsinger/opendump` → public upstream; task writes forbidden;
-- any different user/org repository copied from the template → uninitialized instance; replace seed metadata with its concrete locked binding.
+- a different user/org repository with the canonical OpenDump structure → candidate user-owned store, subject to access/ownership verification.
 
-This prevents a newly templated personal repo from being mistaken for the read-only upstream.
+Copied files never make a different repository the public upstream.
 
 ### One-liner only
 
-You can send the one-liner without creating a repo first. The deterministic cold-start protocol prefers GitHub. If the host can create a user-owned template instance itself, it does so. If GitHub requires a user action the host cannot perform (for example authentication/connection/template creation), initialization is explicitly **blocked** until that action is completed rather than silently falling back to a weaker store.
+You can send the one-liner without creating a repo first. The deterministic cold-start protocol prefers GitHub. If the host can create a user-owned template instance itself, it does so. If GitHub requires a user action the host cannot perform, initialization is explicitly **blocked** until that action is completed rather than silently falling back to a weaker store.
 
 ## Without GitHub
 
@@ -49,7 +50,7 @@ If GitHub is explicitly declined or not a feasible path, the same protocol can b
 2. `artifact` — a durable host artifact mirroring the same task-state collections;
 3. `unsupported` — no reliable tracking when the host has no durable writable store/instruction arrangement.
 
-The agent must lock exactly one mode and concrete location. It must never leave persistent instructions saying “GitHub or local” and decide differently at runtime.
+The agent must lock exactly one mode and concrete location in the host adapter. It must never leave persistent instructions saying “GitHub or local” and decide differently at runtime.
 
 ## Deterministic initialization
 
@@ -72,20 +73,21 @@ The host agent is trusted to intelligently discover facts about its own environm
 
 ## Harness-neutral template
 
-The public template intentionally ships **no product-specific rule, skill, bridge, or project-instruction file**. Cold start discovers the host's native persistent instruction mechanism and generates the adapter there.
+The public template intentionally ships **no product-specific rule, skill, bridge, project-instruction file, or environment-specific binding manifest**. Cold start discovers the host's native persistent instruction mechanism and generates the adapter there.
 
 That means:
 
 - no host gets privileged treatment in the canonical template;
 - no host-specific instructions execute before environment discovery;
 - generated adapters cannot drift into competing canonical specifications;
-- future hosts follow the same protocol without requiring a template update merely to add their file naming convention.
+- future hosts follow the same protocol without requiring a template update merely to add their file naming convention;
+- repository moves, renames, branches, and host identity are not duplicated into stale store metadata.
 
 `AGENTS.md` remains intentionally: it is the portable canonical runtime specification, not proof of a particular host.
 
 ## Minimal store schema
 
-OpenDump stores **task state**, not source-material transport state.
+OpenDump stores **task state**, not environment-binding state or source-material transport state.
 
 The canonical task-state collections are:
 
@@ -96,13 +98,14 @@ The canonical task-state collections are:
 | `private-completed.md` | Completed personal-task archive |
 | `business-completed.md` | Completed work-task archive |
 
-For GitHub/local-file stores, these protocol/binding files accompany the task state:
+For GitHub/local-file stores, these canonical protocol files accompany the task state:
 
 | File | Purpose |
 |------|---------|
 | `AGENTS.md` | Canonical normal task workflow + store-mode semantics |
 | `HARNESS_BOOTSTRAP.md` | Normative host-independent initialization state machine, capability gates, binding and verification |
-| `opendump.config.md` | Template seed before initialization; concrete store binding afterwards |
+
+The **host adapter is the sole persistent binding record** for the active mode and location in that host environment.
 
 Attachments, uploads, screenshots, audio, watched folders, staging queues, and processed-source archives are not part of the canonical store. The host may accept any of those inputs; OpenDump extracts the task intent and persists only the resulting task state unless the user explicitly requests source retention.
 
