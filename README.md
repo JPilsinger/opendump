@@ -4,7 +4,7 @@ Open-source place to dump and track tasks. Your AI agent catches, progresses, an
 
 ## About
 
-opendump is a harness-portable task dump: you talk to your agent, it captures personal and work tasks, and persists them to **your** GitHub repo when you want sync — or to local files / a durable artifact when you do not. Drop a quick screenshot, snap a photo on your phone, or point at files and other content — the agent reads the image or file and extracts the to-dos accordingly.
+opendump is a harness-portable task dump: you talk to your agent, it captures personal and work tasks, and persists them to **your** GitHub repo when you want sync — or to local files / a durable artifact when you do not. Send a screenshot, snap a photo, attach a document, point at a file, or provide other content — the agent extracts the actionable work through whatever input capabilities the current host exposes.
 
 `JPilsinger/opendump` is the **public GitHub template and workflow reference**, not a personal task database. Personal and shared tasks live in a repo **you** create with **Use this template**, or another explicitly locked durable store.
 
@@ -45,8 +45,8 @@ You can send the one-liner without creating a repo first. The deterministic cold
 
 If GitHub is explicitly declined or not a feasible path, the same protocol can bind:
 
-1. `local-files` — a durable markdown tree mirroring the opendump layout;
-2. `artifact` — a durable host artifact mirroring the same task sections;
+1. `local-files` — durable markdown files implementing the canonical task-state schema;
+2. `artifact` — a durable host artifact mirroring the same task-state collections;
 3. `unsupported` — no reliable tracking when the host has no durable writable store/instruction arrangement.
 
 The agent must lock exactly one mode and concrete location. It must never leave persistent instructions saying “GitHub or local” and decide differently at runtime.
@@ -83,17 +83,28 @@ That means:
 
 `AGENTS.md` remains intentionally: it is the portable canonical runtime specification, not proof of a particular host.
 
-## What you get
+## Minimal store schema
+
+OpenDump stores **task state**, not source-material transport state.
+
+The canonical task-state collections are:
+
+| File | Purpose |
+|------|---------|
+| `private.md` | Open personal tasks |
+| `business.md` | Open work tasks |
+| `private-completed.md` | Completed personal-task archive |
+| `business-completed.md` | Completed work-task archive |
+
+For GitHub/local-file stores, these protocol/binding files accompany the task state:
 
 | File | Purpose |
 |------|---------|
 | `AGENTS.md` | Canonical normal task workflow + store-mode semantics |
 | `HARNESS_BOOTSTRAP.md` | Normative host-independent initialization state machine, capability gates, binding and verification |
 | `opendump.config.md` | Template seed before initialization; concrete store binding afterwards |
-| `private.md` / `business.md` | Open personal and work tasks |
-| `private-completed.md` / `business-completed.md` | Completed-task archives |
-| `inbox/` | Optional drop folder for notes, screenshots, voice |
-| `processed/` | Optional holding area after intake processing |
+
+Attachments, uploads, screenshots, audio, watched folders, staging queues, and processed-source archives are not part of the canonical store. The host may accept any of those inputs; OpenDump extracts the task intent and persists only the resulting task state unless the user explicitly requests source retention.
 
 Host-specific adapter files are generated downstream during initialization and are not part of the public template.
 
@@ -108,7 +119,7 @@ Full task semantics: [`AGENTS.md`](./AGENTS.md). Initialization protocol: [`HARN
 
 ## Privacy
 
-Task files stay empty in the public template. Treat your instance as sensitive. Prefer a **private** GitHub repo for personal or family use.
+Task files stay empty in the public template. Treat your instance as sensitive. Prefer a **private** GitHub repo for personal or family use. Source material is not retained in the OpenDump store by default.
 
 ## Contributing
 

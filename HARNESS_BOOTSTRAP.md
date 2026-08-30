@@ -52,6 +52,23 @@ The public opendump template MUST remain host-neutral.
 
 `AGENTS.md` is intentionally retained as a portable canonical runtime specification. Its presence MUST NOT be used as evidence of any particular host identity.
 
+## Canonical task-state schema
+
+For `github` and `local-files`, the canonical task-state schema consists of exactly these four files:
+
+```text
+private.md
+business.md
+private-completed.md
+business-completed.md
+```
+
+For `artifact`, the artifact MUST expose equivalent logical collections for Private/Business open state and Private/Business completed history.
+
+`AGENTS.md`, `HARNESS_BOOTSTRAP.md`, and `opendump.config.md` are protocol/binding metadata for file/GitHub modes; they are not additional task-state collections.
+
+Source-material transport or lifecycle mechanisms — including watched directories, upload queues, staging folders, source archives, acknowledgement ledgers, and processed-source directories — are not part of the canonical opendump schema and MUST NOT be required for a binding to be valid.
+
 ## Initialization state machine
 
 Cold start MUST progress through these states in order. A state may perform multiple operations, but a later state MUST NOT be claimed until the current state's postconditions are satisfied.
@@ -176,10 +193,10 @@ If no valid existing binding is present, select the store using this procedure. 
 A GitHub repository is a resolvable opendump candidate only when at least one of these is true:
 
 1. the user explicitly supplied that repository/location;
-2. the current repository is a non-upstream template copy containing the expected opendump layout/seed metadata;
+2. the current repository is a non-upstream template copy containing the canonical four task-state files plus opendump seed/binding metadata;
 3. an accessible repository contains an initialized opendump config whose `upstream` is `JPilsinger/opendump` and whose declared location matches itself.
 
-Do not guess a store from repository name similarity alone. If more than one candidate remains and none is distinguished by an existing valid binding or explicit user reference, enter `BLOCKED` with reason `github_store_selection_required` and present the concrete candidates.
+Do not require or infer intake/staging directories when resolving a candidate. Do not guess a store from repository name similarity alone. If more than one candidate remains and none is distinguished by an existing valid binding or explicit user reference, enter `BLOCKED` with reason `github_store_selection_required` and present the concrete candidates.
 
 ### Selection algorithm
 
@@ -210,8 +227,11 @@ All MUST be true:
 - repository is readable in the current environment;
 - repository is writable in the current environment;
 - repository is not `JPilsinger/opendump`;
-- required task files/layout exist or are created from the template;
+- `private.md`, `business.md`, `private-completed.md`, and `business-completed.md` exist or are created;
+- `AGENTS.md`, `HARNESS_BOOTSTRAP.md`, and `opendump.config.md` exist or are materialized from the canonical template as needed for a file/GitHub installation;
 - concrete branch/default ref is known or resolvable.
+
+No intake, staging, upload, or processed-source directory is required by this gate.
 
 Canonical location format:
 
@@ -224,10 +244,12 @@ Canonical location format:
 All MUST be true:
 
 - concrete directory/path is known;
-- required opendump markdown layout exists or is created;
-- task files are readable;
-- task files are writable;
+- `private.md`, `business.md`, `private-completed.md`, and `business-completed.md` exist or are created;
+- the four task-state files are readable and writable;
+- `AGENTS.md`, `HARNESS_BOOTSTRAP.md`, and `opendump.config.md` exist or are materialized as needed for the file-based installation;
 - location is durable beyond the current response/session according to the host's file model.
+
+No intake, staging, upload, or processed-source directory is required by this gate.
 
 ### `artifact` binding gate
 
@@ -238,7 +260,9 @@ All MUST be true:
 - artifact is readable;
 - artifact is writable;
 - artifact is durable according to the host;
-- it contains/mirrors Private + Business Backlog/In progress and completed archive semantics.
+- it mirrors Private + Business Backlog/In progress and Private + Business completed history semantics.
+
+Transport/staging sections are not required.
 
 ### `unsupported`
 
@@ -263,7 +287,7 @@ Canonical form:
 - upstream: JPilsinger/opendump
 ```
 
-Use the equivalent concrete path for `local-files`. For `artifact`, the adapter MUST record the artifact identity; record equivalent metadata inside the artifact when the host supports it without harming the task layout.
+Use the equivalent concrete path for `local-files`. For `artifact`, the adapter MUST record the artifact identity; record equivalent metadata inside the artifact when the host supports it without harming the task-state collections.
 
 Credentials, access tokens, private keys, cookies, and connector secrets MUST NOT be written into configuration or persistent instructions.
 
@@ -318,8 +342,9 @@ The agent MUST:
 3. Confirm exactly one mode and one concrete location.
 4. Confirm the read-back binding equals the intended binding.
 5. Read `opendump.config.md` for file/GitHub modes and confirm it agrees with the adapter.
-6. Re-read enough of the bound store to prove current read access.
-7. Where write verification has not already occurred during materialization/config update, perform a non-destructive write-capability verification appropriate to the host or rely on a successful configuration write just performed.
+6. Re-read enough of the bound store to prove current read access, including the canonical open task-state collections.
+7. Confirm the canonical task-state schema is present for the selected mode; do not require transport/staging directories.
+8. Where write verification has not already occurred during materialization/config update, perform a non-destructive write-capability verification appropriate to the host or rely on a successful configuration write just performed.
 
 If any verification fails, do not claim installation succeeded. Repair and re-verify when possible; otherwise enter `BLOCKED` with the failing gate and reason.
 
@@ -390,21 +415,25 @@ At startup:
 - Manual adapter text is not considered installed until persisted and verified.
 - Failure to access the bound store is reported accurately.
 - Normal task semantics come from `AGENTS.md`.
+- Source-material transport/staging is not part of canonical task state.
 
 ## Migration / mode change
 
 A mode/location change is an explicit re-initialization operation.
 
-1. Preserve existing task data.
+1. Preserve existing canonical task state.
 2. Materialize/copy it into the target store.
 3. Re-run store binding, adapter installation, and verification for the new target.
 4. Replace the old binding only after the new one verifies successfully.
 5. Never operate two authoritative stores in parallel.
+
+Source-material staging directories or processed-source archives are not required to migrate because they are outside canonical task state.
 
 ## Maintenance rule
 
 - Change normal task semantics in `AGENTS.md`.
 - Change initialization semantics in this file.
 - Keep the public template free of committed host-specific adapters.
+- Keep source-ingestion transport/staging mechanisms outside the canonical store schema.
 - When an initialized user environment contains a generated adapter, regenerate that downstream adapter from the canonical documents after relevant semantic changes.
 - Never copy a generated adapter into the public template as a compatibility shortcut.
