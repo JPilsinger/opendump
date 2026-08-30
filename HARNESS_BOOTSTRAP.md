@@ -18,7 +18,7 @@ Initialization prose and examples never override normative requirements.
 2. `AGENTS.md` is authoritative for normal task workflow semantics and store-mode rules.
 3. `HARNESS_BOOTSTRAP.md` is authoritative for initialization, capability detection, store selection, adapter installation, and verification.
 4. The locked user-owned store is authoritative for task state.
-5. Host-native instruction files/fields are derived adapters. Their locked `store` and `location` determine where that host reads/writes, but they MUST NOT redefine workflow semantics.
+5. Host-native instruction surfaces contain derived adapters. Their locked `store` and `location` determine where that host reads/writes, but they MUST NOT redefine workflow semantics.
 
 If a derived adapter conflicts with canonical workflow semantics, regenerate it. If its store binding is absent, ambiguous, or invalid, initialization is not complete.
 
@@ -38,7 +38,19 @@ When the reference is `JPilsinger/opendump`, it is the public workflow/template 
 
 **Intelligence discovers facts. The protocol decides what those facts imply.**
 
-The agent SHOULD reason freely when identifying its host harness, native instruction surface, available tools, repository context, and persistence capabilities. Once those facts are established, state transitions, store selection, success criteria, and failure behavior are deterministic.
+The agent SHOULD reason freely when identifying its host environment, native persistent instruction surface, available tools, repository context, and persistence capabilities. Once those facts are established, state transitions, store selection, success criteria, and failure behavior are deterministic.
+
+## Harness-neutrality invariant
+
+The public opendump template MUST remain host-neutral.
+
+- The template MUST NOT ship files, directories, skills, rules, bridges, project instructions, or other adapters whose purpose is to target a specific agent product or harness.
+- Host-specific adapter paths and syntax MUST be discovered at cold start from the actual environment, not preselected by the template.
+- A host-specific adapter MAY be generated into a user-owned initialized environment when that is the native persistent instruction mechanism of the detected host.
+- Generated host adapters are downstream artifacts. They MUST NOT become canonical specifications for opendump or another host.
+- The absence of a preinstalled host adapter in the public template is intentional and MUST NOT be treated as missing configuration.
+
+`AGENTS.md` is intentionally retained as a portable canonical runtime specification. Its presence MUST NOT be used as evidence of any particular host identity.
 
 ## Initialization state machine
 
@@ -47,7 +59,7 @@ Cold start MUST progress through these states in order. A state may perform mult
 | State | Required outcome |
 |---|---|
 | `UNINITIALIZED` | No verified active binding has yet been accepted for this cold start |
-| `ENVIRONMENT_IDENTIFIED` | Host harness and native persistent-instruction surface are identified, or explicitly unknown |
+| `ENVIRONMENT_IDENTIFIED` | Host and native persistent-instruction surface are identified, or explicitly unknown |
 | `CAPABILITIES_ESTABLISHED` | Relevant persistence capabilities are established as facts |
 | `STORE_SELECTED` | Exactly one store mode is selected by the deterministic selection procedure |
 | `STORE_BOUND` | A concrete store exists and satisfies the mode's binding gate |
@@ -64,28 +76,37 @@ Two explicit non-success terminal states also exist:
 
 ## Phase 1 — environment identification
 
-The agent MUST identify the host harness and its native persistent instruction surface using the first conclusive evidence available in this order:
+The agent MUST identify the host and its native persistent instruction surface using the first conclusive evidence available in this order:
 
 1. Platform/system-provided host identity.
 2. Native persistent-instruction APIs or surfaces exposed by the host.
-3. Host-specific workspace conventions.
+3. Host-specific workspace conventions discovered in the current environment.
 4. Available tool/connector signatures.
 5. Current official host documentation when external lookup is available and materially needed.
 6. User clarification only when identity remains materially ambiguous and the ambiguity blocks correct installation.
 
-The agent MUST NOT infer a specific harness solely from a portable file such as `AGENTS.md`, `README.md`, or another file that may exist in multiple hosts.
+The agent MUST NOT infer a specific host solely from a portable file such as `AGENTS.md`, `README.md`, or another file that may exist in multiple environments.
 
 Required normalized facts:
 
 ```yaml
 host:
-  name: <identified harness or unknown>
+  name: <identified host or unknown>
   instruction_surface: <native persistent surface or none>
   instruction_readable: <true|false>
   instruction_writable: <true|false>
 ```
 
-Transition to `ENVIRONMENT_IDENTIFIED` only after these facts are established. An unfamiliar harness is not an error; continue by capability rather than vendor name.
+### Instruction-surface selection
+
+If the host exposes multiple persistent instruction surfaces, select the **narrowest durable project-scoped surface that reliably applies to the sessions in which opendump is expected to operate**.
+
+- Prefer project/workspace scope over account/global scope when both satisfy the requirement.
+- Preserve unrelated existing instructions on shared surfaces.
+- Do not install duplicate opendump adapters into multiple surfaces merely because they are available.
+- If multiple surfaces are equally suitable and choosing incorrectly could materially change scope or behavior, enter `BLOCKED` with reason `instruction_surface_selection_required` and present the concrete alternatives.
+
+Transition to `ENVIRONMENT_IDENTIFIED` only after these facts are established. An unfamiliar host is not an error; continue by capability rather than product name.
 
 ## Phase 2 — capability establishment
 
@@ -113,7 +134,7 @@ artifact:
 
 A capability is `true` only when the current environment/session exposes a usable way to perform it. When a capability cannot be proven and is required for a candidate mode, treat it as unavailable until proven otherwise.
 
-`github.setup_available` is `true` only when the current host/session exposes a **concrete, actionable path** by which the user can enable the missing GitHub capability without changing to another harness, such as connecting/authenticating GitHub, approving repository access, creating/selecting a template instance through an exposed UI, or completing an equivalent host-supported setup action. If true, `setup_user_action` MUST name that exact action. Mere theoretical GitHub support or generic advice to "set up GitHub" is not enough.
+`github.setup_available` is `true` only when the current host/session exposes a **concrete, actionable path** by which the user can enable the missing GitHub capability without changing to another host, such as connecting/authenticating GitHub, approving repository access, creating/selecting a template instance through an exposed UI, or completing an equivalent host-supported setup action. If true, `setup_user_action` MUST name that exact action. Mere theoretical GitHub support or generic advice to "set up GitHub" is not enough.
 
 Transition to `CAPABILITIES_ESTABLISHED` only after enough facts exist to execute store selection mechanically.
 
@@ -126,7 +147,7 @@ Let `UPSTREAM = JPilsinger/opendump`.
 1. If the current repository full name equals `UPSTREAM`, its role is `public-upstream-template` and user task writes are forbidden.
 2. If the current repository full name does **not** equal `UPSTREAM` and it contains inherited seed metadata such as `role: template-seed`, `initialized: false`, or legacy `role: public-upstream-template`, treat that metadata as an **uninitialized template copy**, not evidence that the new repository is the public upstream.
 3. During successful initialization of a user-owned file/GitHub store, replace inherited seed/legacy metadata with the actual locked binding.
-4. Never use repository name similarity, fork/template ancestry, or copied adapter text as sufficient evidence that a repository is the public upstream; compare concrete repository identity when available.
+4. Never use repository name similarity, fork/template ancestry, copied text, or generated adapter paths as sufficient evidence that a repository is the public upstream; compare concrete repository identity when available.
 
 This rule exists because GitHub template creation copies files verbatim.
 
@@ -237,7 +258,7 @@ Canonical form:
 - initialized: true
 - store: github
 - location: <owner>/<repo>@<branch>
-- harness: <identified harness>
+- harness: <identified host>
 - locked: YYYY-MM-DD
 - upstream: JPilsinger/opendump
 ```
@@ -246,11 +267,11 @@ Use the equivalent concrete path for `local-files`. For `artifact`, the adapter 
 
 Credentials, access tokens, private keys, cookies, and connector secrets MUST NOT be written into configuration or persistent instructions.
 
-## Phase 6 — install the host adapter
+## Phase 6 — generate and install the host adapter
 
-Locate the host's native persistent instruction surface discovered in Phase 1.
+Use the native persistent instruction surface discovered in Phase 1. Do not select a path or syntax from examples, prior knowledge of another product, or files that happened to exist in the public template.
 
-The installed adapter MUST:
+The generated adapter MUST:
 
 - identify itself as opendump-derived;
 - reference `AGENTS.md` / `HARNESS_BOOTSTRAP.md` when those canonical files are accessible, or faithfully mirror their minimum semantics when they are not;
@@ -263,7 +284,7 @@ The installed adapter MUST:
 - state that unavailable store access must be reported rather than silently switching modes;
 - preserve unrelated existing host/project instructions.
 
-When the instruction surface is shared, use one replaceable managed block:
+When the instruction surface is shared, use one replaceable managed block when the host's syntax permits it:
 
 ```markdown
 <!-- OPENDUMP:BEGIN store=<mode> location=<concrete location> -->
@@ -271,7 +292,9 @@ When the instruction surface is shared, use one replaceable managed block:
 <!-- OPENDUMP:END -->
 ```
 
-Repeated cold start MUST replace/update the existing managed block rather than append duplicates.
+If the host uses a different native structure, preserve the same idempotence and single-binding semantics using that structure.
+
+Repeated cold start MUST replace/update the existing opendump adapter rather than append duplicates.
 
 If the agent can generate but cannot write the native instruction surface, it MUST provide the exact payload for manual installation and enter:
 
@@ -340,7 +363,7 @@ opendump_initialization:
   reason: manual_adapter_installation_required
 ```
 
-When unsupported, explicitly state that reliable task tracking is unavailable in the current harness and do not pretend chat memory is the database.
+When unsupported, explicitly state that reliable task tracking is unavailable in the current host and do not pretend chat memory is the database.
 
 Do not convert `BLOCKED` or `UNSUPPORTED` into a weaker silent success.
 
@@ -355,38 +378,6 @@ At startup:
 3. When file/GitHub canonical workflow docs are accessible, follow current `AGENTS.md` semantics.
 4. If the bound store is inaccessible, report the failure and stop claiming persistence. Do not switch stores silently.
 5. Run this full cold-start protocol again only when explicitly requested, when the binding is invalid, or when the user requests a mode/location change.
-
-## Known harness implementation notes
-
-These are implementation hints, not alternate decision algorithms. The state machine and capability gates above remain authoritative.
-
-### Claude Code
-
-Use project `CLAUDE.md` / `.claude/CLAUDE.md`. When the opendump store is the workspace, a small bridge may import canonical files and state the binding. When installing into another project, preserve unrelated instructions and update a dedicated managed block.
-
-### Claude Projects / Claude for Work
-
-Use Project Instructions as the native persistent surface. If programmatic writes are unavailable, provide the exact managed block and enter `BLOCKED` until the user installs it and it can be verified.
-
-### Cursor
-
-Use an always-applied `.cursor/rules/opendump.mdc` rule and keep the opendump skill mirror aligned. The generated user-instance adapter must contain one concrete store binding.
-
-### OpenCode
-
-OpenCode can consume project `AGENTS.md`. If the opendump store is the project root, use canonical files plus the concrete config binding. If another project is active, preserve unrelated target-project guidance and install a managed opendump block there.
-
-### ChatGPT Projects
-
-Use Project Instructions as the persistent instruction surface when available. Determine GitHub/files/artifact capability from actually exposed tools/connections rather than assuming product-wide capability. If Project Instructions cannot be written programmatically, manual payload generation leaves initialization `BLOCKED` until installed and verified.
-
-### Artifact-first harnesses
-
-When durable artifacts are the selected mode, one concrete artifact identity must be bound and verified. Do not represent ephemeral chat content as a durable artifact.
-
-### Unknown/future harnesses
-
-Do not force another vendor's conventions onto an unfamiliar host. Identify the native persistent instruction surface and capabilities, then execute the same state machine. Harness identity may remain descriptive/unknown as long as the actual instruction surface and persistence capabilities are established sufficiently for correct binding.
 
 ## Minimum semantics every generated adapter must preserve
 
@@ -412,4 +403,8 @@ A mode/location change is an explicit re-initialization operation.
 
 ## Maintenance rule
 
-Change normal task semantics in `AGENTS.md`. Change initialization semantics in this file. Then refresh committed derived adapters (`CLAUDE.md`, Cursor rule/skill, and other future adapters). Vendor-specific notes MUST remain downstream implementation guidance, never a competing initialization algorithm.
+- Change normal task semantics in `AGENTS.md`.
+- Change initialization semantics in this file.
+- Keep the public template free of committed host-specific adapters.
+- When an initialized user environment contains a generated adapter, regenerate that downstream adapter from the canonical documents after relevant semantic changes.
+- Never copy a generated adapter into the public template as a compatibility shortcut.
