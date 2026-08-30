@@ -30,15 +30,16 @@ The canonical **task-state schema** contains exactly these four logical task col
 | `private-completed.md` | Completed personal-task archive |
 | `business-completed.md` | Completed work-task archive |
 
-For GitHub and local-file stores, the canonical protocol/binding files are:
+For GitHub and local-file stores, these canonical protocol files accompany the task state:
 
 | Path | Role |
 |---|---|
 | `AGENTS.md` | Authoritative normal task workflow semantics |
 | `HARNESS_BOOTSTRAP.md` | Authoritative host-independent cold-start / adapter protocol |
-| `opendump.config.md` | Template seed before initialization; concrete binding afterwards |
 
 A durable artifact store MUST mirror the same four task-state collections even if it does not use these filenames.
+
+Environment-specific binding metadata is **not** part of the canonical store. The installed host adapter is the sole persistent record of the active store mode and concrete location for that host environment.
 
 Source material, uploads, attachments, staging folders, watched directories, transport queues, and processed-source archives are **not** part of the canonical opendump store schema.
 
@@ -61,7 +62,8 @@ Hard ban: locking `github` location to `JPilsinger/opendump` (or writing tasks t
 
 ### Mode rules
 
-- **Declare the store in every adapter** — include `store:` / mode, and the concrete location (`owner/repo`, filesystem path, or artifact id/name). Ambiguous adapters are invalid; regenerate them.
+- **Declare the store in every adapter** — include `store:` / mode, and the concrete location (`owner/repo@branch`, filesystem path, or artifact id/name). Ambiguous adapters are invalid; regenerate them.
+- **Adapter is the binding record** — do not duplicate environment-specific binding state into the task store.
 - **Do not silently switch modes** mid-session. If the locked store becomes unavailable, say so, stop claiming writes succeeded, and offer reconnect or a cold-start mode change.
 - **Status and startup replies** should name the active store briefly when relevant (especially after cold start or on failure).
 - **Upgrade path** — `local-files` / `artifact` → `github` is supported by copying the canonical task state into a new template instance, then re-running cold start in `github` mode. Do not invent automatic two-way sync in v1.
@@ -69,31 +71,33 @@ Hard ban: locking `github` location to `JPilsinger/opendump` (or writing tasks t
 
 ## Authority
 
-- The **active store** (per locked mode) is the source of truth for task state.
+- The **active store** is the source of truth for task state.
 - `AGENTS.md` is authoritative for task workflow behavior.
 - `HARNESS_BOOTSTRAP.md` is authoritative for translating/installing that behavior into the host environment and for choosing/locking store mode.
+- The installed host adapter is authoritative only for the concrete `store` + `location` binding in that host environment.
 - In file-based stores, `private.md` and `business.md` are authoritative for open and in-progress task state; `private-completed.md` and `business-completed.md` are authoritative for completed history. Artifact stores mirror the same section semantics.
-- Host-specific files and project-instruction fields are derived adapters. If they conflict with the canonical workflow docs in the store, the canonical docs win and the adapter should be regenerated — except the adapter’s **locked mode and location** win for “where to read/write,” and must stay unambiguous.
+- Host-specific files and project-instruction fields are derived adapters. If they conflict with canonical workflow docs, the canonical docs win except for the adapter's concrete binding, which must remain unambiguous.
 - Platform/system/security policies remain higher priority than repository instructions.
 
 ## Startup sync
 
 At the beginning of every new conversation/session where opendump is installed, **before relying on prior chat context**:
 
-1. Read the host adapter (or `opendump.config.md` if present) and note the **locked store mode and location**.
+1. Read the installed host adapter and note the **locked store mode and location**.
 2. Load live open tasks from that store (`private.md` / `business.md`, or the artifact equivalent).
 3. When mode is `github` and access is available, treat the remote/canonical checkout as fresher than remembered chat context or stale mirrors.
 4. Read `AGENTS.md` and `HARNESS_BOOTSTRAP.md` from the store when available (for `github` / `local-files`).
 5. Do **not** load completed archives during routine startup or status reporting. Read them only when the user asks for completed history or a specific archive lookup is needed.
-6. If the locked store cannot be accessed, say so explicitly and do not pretend it was reviewed or updated.
+6. If the adapter is missing, ambiguous, or invalid, do not infer the active binding from a copied store-side config file; run cold start or report the missing binding.
+7. If the locked store cannot be accessed, say so explicitly and do not pretend it was reviewed or updated.
 
-A normal startup sync reads the store and tasks. It does **not** silently rewrite a host project's persistent instructions unless the user explicitly requests a cold start/bootstrap.
+A normal startup sync reads the adapter, store, and tasks. It does **not** silently rewrite persistent instructions unless the user explicitly requests a cold start/bootstrap or the existing binding is invalid.
 
 ## Harness-independent cold start
 
 When the user explicitly asks for a **cold start**, initialization, bootstrap from opendump, sends the setup one-liner above, or equivalent, execute `HARNESS_BOOTSTRAP.md` before normal task handling.
 
-Cold start selects and **locks** a store mode, generates and installs a derived adapter on the native persistent instruction surface, verifies the adapter/store binding by read-back, then loads and surfaces live tasks. Only `READY` is success.
+Cold start selects and **locks** a store mode, generates and installs a derived adapter on the native persistent instruction surface, verifies the adapter/store binding by read-back and independent store access, then loads and surfaces live tasks. Only `READY` is success.
 
 ## Lifecycle
 
@@ -175,14 +179,15 @@ Additional rules:
 ## After task-state changes
 
 - Persist according to the locked mode’s persist rules above.
-- Only mutate canonical task-state files/sections and intentional protocol/configuration documents.
+- Only mutate canonical task-state files/sections and intentional protocol documents.
+- Do not create store-side environment-binding manifests as part of normal opendump operation.
 - Do not create transport/staging directories as part of normal opendump operation.
 
 ## Maintaining the protocol and adapters
 
 - Change workflow semantics in `AGENTS.md` first.
 - Change cross-host bootstrap/translation and mode selection in `HARNESS_BOOTSTRAP.md` first.
-- Keep the public template free of host-specific adapter files and directories.
+- Keep the public template free of host-specific adapter files and environment-specific binding manifests.
 - Keep source-ingestion transport/staging mechanisms outside the canonical store schema.
 - Generate or regenerate the adapter only in the initialized user environment, using that host's discovered native persistent instruction surface.
 - Never make a generated host-specific adapter the upstream specification for another host.
