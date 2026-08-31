@@ -2,7 +2,38 @@
 
 Open-source place to dump and track personal and business tasks with an AI agent.
 
-OpenDump is host-neutral: the task model stays the same while the bound store may be GitHub, durable local files, or a durable host artifact.
+OpenDump is also a concrete example of a broader portable-agentic-workflow architecture: define workflow semantics once, then compile them into a host-specific realization using whatever native agentic primitives the current AI platform provides.
+
+## Architecture
+
+OpenDump has three central control artifacts:
+
+```text
+AGENTS.md
+    WHAT OpenDump means at runtime
+        ↓
+HARNESS_BOOTSTRAP.md
+    HOW to realize OpenDump on an arbitrary host
+        ↓
+Host adapter
+    THE realized host-specific OpenDump implementation
+```
+
+`AGENTS.md` is the canonical **host-neutral runtime contract**.
+
+`HARNESS_BOOTSTRAP.md` is the **host-neutral compiler/installer/verifier**.
+
+The generated **host adapter** is the complete host-specific manifestation of `AGENTS.md`, parameterized by the concrete task-store binding. It may be one file or field, or several cooperating host-native assets such as project instructions, rules, skills, persistent settings, or other mechanisms.
+
+Conceptually:
+
+```text
+OpenDumpAdapter = Compile(AGENTS.md, HostEnvironment, StoreBinding)
+```
+
+The adapter is derived. It is never a second source of OpenDump workflow truth.
+
+When a host can reliably consume current `AGENTS.md` semantics directly, bootstrap prefers to link them rather than copy them. When it cannot, bootstrap faithfully compiles the required semantics into native host assets. Either way, correctness means equivalent observable OpenDump behavior.
 
 ## How it works
 
@@ -25,15 +56,27 @@ Preferred GitHub flow:
 review https://github.com/JPilsinger/opendump and start the coldstart procedure.
 ```
 
-3. The agent identifies its host, persistent instruction surface, and actual capabilities.
-4. It selects exactly one durable store, materializes/validates the canonical task schema, generates one host-native adapter containing the concrete binding, reads it back, independently verifies the store, and loads live tasks.
-5. Only then is initialization `READY`.
+3. The bootstrap/compiler identifies the actual host, its durable native agentic primitives, current tools/permissions, and viable task stores.
+4. It establishes exactly one concrete store binding.
+5. It compiles `AGENTS.md` + host environment + store binding into one logical host adapter, using linked, compiled, or hybrid realization as appropriate.
+6. It installs the required host-native assets, reads them back, verifies semantic coverage and the store binding, and loads live tasks.
+7. Only then is initialization `READY`.
 
 If no repository exists yet and the host can create one, cold start may create a normal repository and write the canonical files; a dedicated template-creation API is not required.
 
+## The host adapter
+
+The adapter is **more than a store pointer**.
+
+It is the complete host-specific realization of the OpenDump runtime contract. The concrete `store` and `location` are required inputs to that realization, but they are only one part of it.
+
+A logical adapter MAY span multiple physical host assets when required. For example, one host might realize OpenDump through project instructions plus a connector; another through repository rules plus filesystem tools; another might natively load `AGENTS.md` and need only a small managed binding/integration layer.
+
+All are valid if they preserve the same canonical runtime semantics.
+
 ## Store modes
 
-OpenDump binds exactly one mode/location per host adapter:
+OpenDump binds exactly one mode/location per logical host adapter:
 
 | Mode | Store |
 |---|---|
@@ -42,9 +85,9 @@ OpenDump binds exactly one mode/location per host adapter:
 | `artifact` | Durable host artifact with equivalent task collections |
 | `unsupported` | No reliable durable store is available |
 
-The adapter is the **sole persistent binding record** for the active mode and concrete location in that host environment. OpenDump does not duplicate repository names, branches, paths, or host identity into the task store.
+The store binding belongs to the generated host realization, not to canonical task state. OpenDump does not duplicate repository names, branches, paths, or host identity into the task store.
 
-If the bound store becomes inaccessible, the agent reports the problem rather than silently switching modes.
+If the bound store becomes inaccessible, the runtime reports the problem rather than silently switching modes.
 
 ## Deterministic cold start
 
@@ -67,7 +110,9 @@ The guiding principle is:
 
 > Intelligence discovers facts. The protocol decides what those facts imply.
 
-Normal sessions do **not** run the bootstrap protocol. They read the installed adapter, load live task state, and follow `AGENTS.md`. Bootstrap is used for initial setup, recovery, or an explicit store change.
+Verification covers both **binding correctness** and **semantic correctness**: the adapter must point to exactly the intended store and faithfully make the canonical OpenDump runtime contract effective on the host.
+
+Normal sessions do not rerun the compiler protocol. They execute under the installed adapter. The adapter may make `AGENTS.md` effective through direct linkage or through a verified compiled host-native realization.
 
 ## Minimal store schema
 
@@ -80,12 +125,12 @@ Canonical task state:
 | `private-completed.md` | Completed personal tasks |
 | `business-completed.md` | Completed business tasks |
 
-For file/GitHub stores these protocol files accompany the task state:
+For file/GitHub stores these canonical protocol files accompany the task state:
 
 | File | Purpose |
 |---|---|
-| `AGENTS.md` | Runtime task workflow semantics |
-| `HARNESS_BOOTSTRAP.md` | Cold-start, recovery, binding, adapter, and verification protocol |
+| `AGENTS.md` | Canonical host-neutral runtime contract |
+| `HARNESS_BOOTSTRAP.md` | Host-neutral compiler/bootstrap protocol |
 
 That's the canonical OpenDump footprint. No host-specific adapters, environment-binding manifests, inbox directories, processed directories, upload queues, or staging folders belong in the public template.
 
@@ -93,7 +138,7 @@ That's the canonical OpenDump footprint. No host-specific adapters, environment-
 
 The public template intentionally ships no product-specific adapter, rule, skill, bridge, or project-instruction payload.
 
-Cold start discovers the host's actual persistent instruction mechanism and generates the adapter downstream. `AGENTS.md` remains part of the template because it is the portable runtime specification, not evidence of any particular host.
+Cold start discovers the host's actual agentic primitives and generates the adapter downstream. Supporting a new host should improve compilation/discovery logic, not add a host-specific fork of the OpenDump runtime contract.
 
 ## Lifecycle
 
@@ -102,9 +147,9 @@ Cold start discovers the host's actual persistent instruction mechanism and gene
 3. **Done** — remove from the active list and append to the matching completed archive with `YYYY-MM-DD`.
 4. **Status** — broad status questions open with all current Backlog + In progress tasks, Private then Business.
 
-Full runtime semantics: [`AGENTS.md`](./AGENTS.md).
+Full runtime contract: [`AGENTS.md`](./AGENTS.md).
 
-Initialization/recovery protocol: [`HARNESS_BOOTSTRAP.md`](./HARNESS_BOOTSTRAP.md).
+Compiler/bootstrap protocol: [`HARNESS_BOOTSTRAP.md`](./HARNESS_BOOTSTRAP.md).
 
 ## Privacy
 
@@ -114,7 +159,7 @@ Source material is not retained in the OpenDump store by default.
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](./CONTRIBUTING.md). Changes that reduce ambiguity or simplify cross-host behavior are especially welcome.
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md). Changes that strengthen semantic portability, reduce ambiguity, or improve cross-host compilation are especially welcome.
 
 ## License
 
