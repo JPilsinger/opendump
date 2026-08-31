@@ -1,62 +1,57 @@
-# Harness bootstrap protocol
+# Host-neutral bootstrap protocol
 
-This file defines the harness-independent initialization protocol for opendump. `AGENTS.md` defines normal task workflow semantics. Cold start is a **formal protocol**: the host agent may use its intelligence to discover facts about its own environment, but the protocol determines what those facts imply and what counts as success.
+This file defines opendump initialization, recovery, store selection, adapter generation, and verification. `AGENTS.md` defines normal runtime task semantics.
+
+Cold start is a formal protocol: the host agent may use its intelligence to discover facts about its environment, but this protocol determines what those facts imply and what counts as success.
 
 ## Normative language
 
-The terms **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** are normative.
+**MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** are normative.
 
 - **MUST / MUST NOT** — required for correctness.
-- **SHOULD / SHOULD NOT** — default behavior; deviate only for a concrete, explainable reason.
-- **MAY** — genuinely optional.
+- **SHOULD / SHOULD NOT** — default behavior; deviate only for a concrete reason.
+- **MAY** — optional.
 
-Initialization prose and examples never override normative requirements.
+## Authority and invariants
 
-## Authority and precedence
+1. Platform/system/security policies have highest priority.
+2. `AGENTS.md` is authoritative for normal runtime task semantics.
+3. `HARNESS_BOOTSTRAP.md` is authoritative for initialization, recovery, store selection, adapter generation, and verification.
+4. The installed host adapter is the sole persistent binding record for that host environment.
+5. The bound store is authoritative for task state.
 
-1. Platform/system/security policies always have highest priority.
-2. `AGENTS.md` is authoritative for normal task workflow semantics and store-mode rules.
-3. `HARNESS_BOOTSTRAP.md` is authoritative for initialization, capability detection, store selection, adapter installation, and verification.
-4. The locked user-owned store is authoritative for task state.
-5. The installed host-native adapter is the **sole persistent binding record** for that host environment. Its `store` and `location` determine where that host reads/writes, but it MUST NOT redefine workflow semantics.
+A **user-controlled store** is owned by the user or explicitly authorized by the user for opendump task storage.
 
-If a generated adapter conflicts with canonical workflow semantics, regenerate it. If its store binding is absent, ambiguous, or invalid, initialization is not complete.
+The public template MUST remain host-neutral:
 
-The opendump store MUST NOT contain a second environment-specific binding manifest. Repository names, filesystem paths, host identity, branch names, and adapter bindings belong to the host adapter or are discovered from the current environment, not duplicated into canonical task state.
+- no committed product-specific adapters, rules, skills, bridges, or project-instruction payloads;
+- no store-side environment binding manifest;
+- no host identity, repository path, branch, filesystem path, or adapter binding duplicated into canonical task state;
+- host-specific adapters are generated only in initialized host environments and remain derived artifacts.
+
+`AGENTS.md` is a portable runtime specification. Its presence MUST NOT be used as evidence of host identity.
 
 ## Cold-start trigger
 
-Run this protocol when the user explicitly requests cold start, initialization, bootstrap, or sends the preferred one-liner:
+Run this protocol when the user explicitly requests initialization, bootstrap, cold start, recovery of an invalid/missing binding, or a store mode/location change.
+
+Preferred request:
 
 ```text
 review https://github.com/JPilsinger/opendump and start the coldstart procedure.
 ```
 
-Equivalent requests naming another opendump checkout/reference also count.
-
-When the reference is `JPilsinger/opendump`, it is the public workflow/template reference only. User tasks MUST NOT be written there.
+When the reference is `JPilsinger/opendump`, it is the public protocol/template reference only. User tasks MUST NOT be written there.
 
 ## Core principle
 
 **Intelligence discovers facts. The protocol decides what those facts imply.**
 
-The agent SHOULD reason freely when identifying its host environment, native persistent instruction surface, available tools, repository context, and persistence capabilities. Once those facts are established, state transitions, store selection, success criteria, and failure behavior are deterministic.
+The agent SHOULD reason freely when identifying the host, persistent instruction surface, repository context, available tools, permissions, and durable storage capabilities. Once those facts are established, transitions and success criteria are deterministic.
 
-## Harness-neutrality invariant
+## Canonical store schema
 
-The public opendump template MUST remain host-neutral.
-
-- The template MUST NOT ship files, directories, skills, rules, bridges, project instructions, or other adapters whose purpose is to target a specific agent product or harness.
-- Host-specific adapter paths and syntax MUST be discovered at cold start from the actual environment, not preselected by the template.
-- A host-specific adapter MAY be generated into a user-owned initialized environment when that is the native persistent instruction mechanism of the detected host.
-- Generated host adapters are downstream artifacts. They MUST NOT become canonical specifications for opendump or another host.
-- The absence of a preinstalled host adapter in the public template is intentional and MUST NOT be treated as missing configuration.
-
-`AGENTS.md` is intentionally retained as a portable canonical runtime specification. Its presence MUST NOT be used as evidence of any particular host identity.
-
-## Canonical task-state schema
-
-For `github` and `local-files`, the canonical task-state schema consists of exactly these four files:
+For `github` and `local-files`, the canonical task-state schema consists of:
 
 ```text
 private.md
@@ -65,73 +60,92 @@ private-completed.md
 business-completed.md
 ```
 
-For `artifact`, the artifact MUST expose equivalent logical collections for Private/Business open state and Private/Business completed history.
+`private.md` and `business.md` MUST expose both:
 
-For file/GitHub stores, `AGENTS.md` and `HARNESS_BOOTSTRAP.md` accompany the task state as canonical protocol documents. They are not task-state collections and they do not record the active host binding.
+```text
+## Backlog
+## In progress
+```
 
-Source-material transport or lifecycle mechanisms — including watched directories, upload queues, staging folders, source archives, acknowledgement ledgers, and processed-source directories — are not part of the canonical opendump schema and MUST NOT be required for a binding to be valid.
+The two completed files are completed-task archives. They may contain no entries.
+
+`AGENTS.md` and `HARNESS_BOOTSTRAP.md` accompany file/GitHub task state as canonical protocol documents. They are not task-state collections and MUST NOT record the active environment binding.
+
+For `artifact`, the artifact MUST expose equivalent logical collections for Private/Business open state (Backlog + In progress) and Private/Business completed history.
+
+Source transport/lifecycle mechanisms — uploads, watched directories, staging folders, acknowledgement ledgers, source archives, and processed-source directories — are outside the canonical store schema.
 
 ## Initialization state machine
 
-Cold start MUST progress through these states in order. A later state MUST NOT be claimed until the current state's postconditions are satisfied.
+Cold start MUST progress in this order:
 
 | State | Required outcome |
 |---|---|
-| `UNINITIALIZED` | No verified active binding has yet been accepted for this cold start |
-| `ENVIRONMENT_IDENTIFIED` | Host and native persistent-instruction surface are identified, or explicitly unknown |
-| `CAPABILITIES_ESTABLISHED` | Relevant persistence capabilities are established as facts |
-| `STORE_SELECTED` | Exactly one store mode is selected by the deterministic selection procedure |
-| `STORE_BOUND` | A concrete store exists and satisfies the mode's binding gate |
-| `ADAPTER_INSTALLED` | Host persistent instructions contain exactly one concrete opendump binding |
-| `VERIFIED` | The adapter is read back and the bound store is independently verified |
-| `READY` | Live open tasks are loaded from the verified store |
+| `UNINITIALIZED` | No verified binding accepted for this run |
+| `ENVIRONMENT_IDENTIFIED` | Host and persistent instruction surface established |
+| `CAPABILITIES_ESTABLISHED` | Relevant persistence capabilities established as facts |
+| `STORE_SELECTED` | Exactly one store mode selected |
+| `STORE_BOUND` | Concrete store/location satisfies its binding gate |
+| `ADAPTER_INSTALLED` | Persistent host instructions contain exactly one concrete opendump binding |
+| `VERIFIED` | Adapter read back and bound store independently verified |
+| `READY` | Live open task state loaded |
 
-Two explicit non-success terminal states also exist:
+Non-success terminal states:
 
-- `BLOCKED` — the environment could support initialization, but a required external/user action or unavailable permission prevents the next required transition.
-- `UNSUPPORTED` — no durable writable store/instruction arrangement exists that can provide reliable tracking.
+- `BLOCKED` — correctness requires an external/user action or unavailable permission.
+- `UNSUPPORTED` — no durable writable store/instruction arrangement can provide reliable tracking.
 
-`READY` is the **only successful terminal state**. There is no partial-success state.
+`READY` is the only successful terminal state. A later state MUST NOT be claimed until the current state's postconditions hold.
 
 ## Phase 1 — environment identification
 
-The agent MUST identify the host and its native persistent instruction surface using the first conclusive evidence available in this order:
+Identify the host and native persistent instruction surface using the first conclusive evidence available, in this order:
 
-1. Platform/system-provided host identity.
-2. Native persistent-instruction APIs or surfaces exposed by the host.
-3. Host-specific workspace conventions discovered in the current environment.
-4. Available tool/connector signatures.
-5. Current official host documentation when external lookup is available and materially needed.
-6. User clarification only when identity remains materially ambiguous and the ambiguity blocks correct installation.
+1. platform/system-provided host identity;
+2. native persistent-instruction APIs/surfaces;
+3. host-specific workspace conventions observed in the current environment;
+4. tool/connector signatures;
+5. current official host documentation when materially needed;
+6. user clarification only when remaining ambiguity prevents correct installation.
 
-The agent MUST NOT infer a specific host solely from a portable file such as `AGENTS.md`, `README.md`, or another file that may exist in multiple environments.
+Do not infer host identity solely from portable repository files.
 
-Required normalized facts:
+Normalize at least:
 
 ```yaml
 host:
   name: <identified host or unknown>
-  instruction_surface: <native persistent surface or none>
+  instruction_surface: <persistent surface or none>
   instruction_readable: <true|false>
   instruction_writable: <true|false>
 ```
 
 ### Instruction-surface selection
 
-If the host exposes multiple persistent instruction surfaces, select the **narrowest durable project-scoped surface that reliably applies to the sessions in which opendump is expected to operate**.
+If multiple persistent instruction surfaces exist, select the **narrowest durable surface that reliably applies wherever opendump is expected to operate**.
 
-- Prefer project/workspace scope over account/global scope when both satisfy the requirement.
-- Preserve unrelated existing instructions on shared surfaces.
-- Do not install duplicate opendump adapters into multiple surfaces merely because they are available.
-- If multiple surfaces are equally suitable and choosing incorrectly could materially change scope or behavior, enter `BLOCKED` with reason `instruction_surface_selection_required` and present the concrete alternatives.
+Use these deterministic preferences when applicable:
 
-Transition to `ENVIRONMENT_IDENTIFIED` only after these facts are established. An unfamiliar host is not an error; continue by capability rather than product name.
+1. the host's explicitly designated project/workspace instruction surface;
+2. another project/workspace-scoped persistent surface;
+3. a repository-scoped persistent surface when opendump sessions are reliably anchored to that repository;
+4. a broader account/global surface only when narrower surfaces do not reliably apply.
+
+Also:
+
+- preserve unrelated instructions on shared surfaces;
+- install only one opendump adapter;
+- do not choose a narrower surface that fails to apply to expected sessions;
+- do not enter `BLOCKED` merely because two reasonable surfaces exist — use host knowledge and the preferences above to resolve the choice;
+- enter `BLOCKED` with reason `instruction_surface_selection_required` only when the agent cannot establish whether the remaining candidates will persist/apply correctly and choosing could make the binding unreliable.
+
+Transition to `ENVIRONMENT_IDENTIFIED` once the host/surface facts are established.
 
 ## Phase 2 — capability establishment
 
-Determine capabilities by observing actual tools, permissions, and durable surfaces. Do not assume a capability merely because a product normally supports it.
+Determine capabilities from actual tools, permissions, and durable surfaces. Do not assume capability because a product normally supports it.
 
-Normalize at least these facts when relevant:
+Normalize when relevant:
 
 ```yaml
 github:
@@ -151,151 +165,153 @@ artifact:
   durable_write: <true|false>
 ```
 
-A capability is `true` only when the current environment/session exposes a usable way to perform it. When a capability cannot be proven and is required for a candidate mode, treat it as unavailable until proven otherwise.
+A capability is `true` only when the current environment/session exposes a usable way to perform it. Treat unproven required capabilities as unavailable until proven otherwise.
 
-`github.setup_available` is `true` only when the current host/session exposes a **concrete, actionable path** by which the user can enable the missing GitHub capability without changing to another host. If true, `setup_user_action` MUST name that exact action. Mere theoretical support or generic advice to "set up GitHub" is not enough.
+`github.setup_available` is `true` only when the current host/session exposes a concrete action that can enable the missing GitHub capability without changing hosts. If true, `setup_user_action` MUST name that action. Generic advice to “set up GitHub” is insufficient.
 
-Transition to `CAPABILITIES_ESTABLISHED` only after enough facts exist to execute store selection mechanically.
+Transition to `CAPABILITIES_ESTABLISHED` once enough facts exist to execute store selection mechanically.
 
-## Repository-role determination
-
-Repository role MUST be derived from the **actual repository identity**, never from copied metadata.
+## Repository role
 
 Let `UPSTREAM = JPilsinger/opendump`.
 
-1. If the current repository full name equals `UPSTREAM`, its role is `public-upstream-template` and user task writes are forbidden.
-2. Any different repository with the canonical opendump structural signature is not the public upstream merely because its files were copied from the template.
-3. Never use repository name similarity, fork/template ancestry, copied text, or generated adapter paths as sufficient evidence that a repository is the public upstream; compare concrete repository identity when available.
+Repository role is determined from actual repository identity, never copied metadata:
 
-The public template requires no seed manifest. GitHub template creation may copy the canonical files verbatim; actual repository identity determines whether the checkout is the upstream reference or a candidate user-owned store.
+1. If the current repository full name equals `UPSTREAM`, it is the public upstream template and user task writes are forbidden.
+2. Any different repository may be a user-controlled opendump store if it satisfies the structural/binding rules below.
+3. Repository name similarity, copied files, fork/template ancestry, or generated adapter paths are not sufficient evidence of upstream identity.
 
-## Existing-binding rule
+The public template requires no seed/config manifest.
+
+## Existing binding
 
 Before selecting a new store, inspect the installed host adapter when available.
 
-An existing binding is valid only if all are true:
+An existing binding is valid only if:
 
 - exactly one `store` mode is declared;
-- exactly one concrete `location` is declared when the mode requires one;
-- the declared store satisfies its binding gate below;
-- a `github` location is not `JPilsinger/opendump` or another known published upstream template.
+- exactly one concrete `location` is declared;
+- the declared store satisfies its current binding gate;
+- a GitHub location is not `JPilsinger/opendump` or another known published upstream template.
 
-If a valid existing adapter binding is present, reuse it. Do not select another store merely because another mode is preferable.
+If valid, reuse it. Do not select another store merely because another mode is preferred.
 
-If an adapter binding exists but is invalid, ambiguous, or points to an inaccessible store, do not silently choose another store. Treat cold start as uninitialized, preserve any recoverable canonical task state, and establish one new binding using this protocol.
+If the adapter binding is invalid, ambiguous, or inaccessible, do not silently fall back. Treat the run as uninitialized, preserve any recoverable canonical task state, and establish one new binding.
 
 ## Phase 3 — deterministic store selection
 
-If no valid existing adapter binding is present, select the store using this procedure. Do not ask the user to choose merely because multiple technical modes are available. A user preference stated before or during initialization overrides the default precedence if it names a viable mode.
+If no valid existing binding exists, select one mode using this procedure. A viable explicit user preference overrides defaults.
 
-### GitHub structural signature and candidate resolution
+### GitHub structural signature
 
-A file/GitHub opendump store has this structural signature:
+A file/GitHub opendump store has this signature:
 
-- `private.md`
-- `business.md`
-- `private-completed.md`
-- `business-completed.md`
-- `AGENTS.md`
-- `HARNESS_BOOTSTRAP.md`
+```text
+private.md
+business.md
+private-completed.md
+business-completed.md
+AGENTS.md
+HARNESS_BOOTSTRAP.md
+```
 
-A GitHub repository is a resolvable opendump candidate only when at least one of these is true:
+The open task files must also contain the required `Backlog` and `In progress` sections.
+
+A GitHub repository is a resolvable candidate when at least one is true:
 
 1. the user explicitly supplied that repository/location;
 2. the current repository is non-upstream and has the structural signature;
-3. an accessible, user-owned, writable repository has the structural signature and its canonical protocol documents identify it as opendump-compatible.
+3. an accessible user-controlled writable repository has the structural signature and canonical protocol docs identify it as opendump-compatible.
 
-The installed adapter, when valid, outranks structural discovery. Structural matching MUST NOT override an explicit user reference.
+A valid installed adapter outranks structural discovery. An explicit user reference outranks structural matching.
 
-Do not guess a store from repository name similarity alone. If more than one structurally valid candidate remains and none is distinguished by an existing valid adapter or explicit user reference, enter `BLOCKED` with reason `github_store_selection_required` and present the concrete candidates.
+Do not guess from repository name similarity. If multiple structurally valid candidates remain with no valid adapter or explicit reference distinguishing them, enter:
+
+```text
+BLOCKED
+reason: github_store_selection_required
+```
+
+and present the concrete candidates.
 
 ### Selection algorithm
 
 Evaluate in order:
 
-1. **Explicit viable user preference** — If the user explicitly requested `github`, `local-files`, or `artifact` and that mode is currently viable, select it and skip lower-priority alternatives.
-2. **Resolvable user-owned GitHub store** — Else if GitHub read/write capability exists and exactly one user-owned opendump repository is resolvable, select `github`.
-3. **Create user-owned GitHub store** — Else if the environment can create a user-owned repository from the template and then read/write it, create it and select `github`.
-4. **Concrete GitHub setup path exists** — Else if `github.setup_available == true` and the user has not explicitly declined GitHub, enter `BLOCKED` with the concrete `setup_user_action`. Do not silently fall through to a weaker mode.
-5. **Durable local files** — Else if durable file read/write capability exists, select `local-files`.
-6. **Durable artifact** — Else if a durable artifact can be read and written, select `artifact`.
-7. **No durable store** — Else enter `UNSUPPORTED`.
+1. **Explicit viable preference** — if the user explicitly requested `github`, `local-files`, or `artifact` and it is viable, select it.
+2. **Resolvable GitHub store** — else if GitHub read/write exists and exactly one user-controlled candidate is resolvable, select `github`.
+3. **Create GitHub store** — else if the host can create a repository and then read/write it, create a user-controlled repository and materialize the canonical opendump files. Prefer the host's native GitHub-template mechanism when `template_create == true`; otherwise create a normal repository and write the six canonical files.
+4. **Concrete GitHub setup path** — else if `github.setup_available == true` and the user has not explicitly declined GitHub, enter `BLOCKED` and report the exact `setup_user_action`. Do not silently fall through.
+5. **Durable local files** — else if durable file read/write exists, select `local-files`.
+6. **Durable artifact** — else if a durable artifact can be read/written, select `artifact`.
+7. **No durable store** — else enter `UNSUPPORTED`.
 
-`github` MUST never bind to `JPilsinger/opendump` or another known published upstream template as the user's task database.
+GitHub MUST never bind to `JPilsinger/opendump` or another known published upstream template.
 
 Transition to `STORE_SELECTED` only when exactly one mode is determined.
 
 ## Phase 4 — store binding gates
 
-A selected mode is not yet bound. Materialize/resolve the store and enforce the relevant gate.
+Materialize/resolve the selected store and enforce its gate.
 
-### `github` binding gate
+### `github`
 
 All MUST be true:
 
 - concrete repository full name is known;
-- repository exists;
-- repository is readable in the current environment;
-- repository is writable in the current environment;
-- repository is user-owned or otherwise explicitly authorized by the user for task storage;
-- repository is not `JPilsinger/opendump` or another known published upstream template;
+- repository exists and is readable/writable in the current environment;
+- repository is user-controlled;
+- repository is not a known published upstream template;
+- concrete branch/default ref is known/resolvable;
 - the four canonical task-state files exist or are created;
-- `AGENTS.md` and `HARNESS_BOOTSTRAP.md` exist or are materialized from the canonical template;
-- concrete branch/default ref is known or resolvable.
+- `private.md` and `business.md` expose `Backlog` and `In progress`;
+- `AGENTS.md` and `HARNESS_BOOTSTRAP.md` exist or are materialized from the canonical template.
 
-Canonical location format:
+Canonical location:
 
 ```text
 <owner>/<repo>@<branch>
 ```
 
-### `local-files` binding gate
+### `local-files`
 
 All MUST be true:
 
-- concrete directory/path is known;
-- the four canonical task-state files exist or are created;
-- the four task-state files are readable and writable;
-- `AGENTS.md` and `HARNESS_BOOTSTRAP.md` exist or are materialized for the file-based installation;
-- location is durable beyond the current response/session according to the host's file model.
+- concrete durable directory/path is known;
+- the four canonical task-state files exist or are created and are readable/writable;
+- `private.md` and `business.md` expose `Backlog` and `In progress`;
+- `AGENTS.md` and `HARNESS_BOOTSTRAP.md` exist or are materialized.
 
-### `artifact` binding gate
+### `artifact`
 
 All MUST be true:
 
-- concrete artifact identity/name is known;
+- concrete artifact identity is known;
 - artifact exists or is created;
-- artifact is readable;
-- artifact is writable;
-- artifact is durable according to the host;
-- it mirrors Private + Business Backlog/In progress and Private + Business completed history semantics.
+- artifact is durable, readable, and writable;
+- it exposes equivalent Private/Business Backlog + In progress and completed-history collections.
 
-Transport/staging sections and environment-specific binding metadata inside the store are not required.
+No transport/staging structure or store-side environment-binding metadata is required.
 
-### `unsupported`
-
-No fake store/location may be created. Reliable capture MUST remain disabled.
-
-Transition to `STORE_BOUND` only after the selected mode's gate passes.
+Transition to `STORE_BOUND` only after the gate passes.
 
 ## Phase 5 — generate and install the host adapter
 
-The concrete binding determined in Phase 4 is persisted **only in the host-native adapter**. Do not write a duplicate binding manifest into the opendump store.
+Persist the Phase 4 binding only in the selected native host instruction surface.
 
-Use the native persistent instruction surface discovered in Phase 1. The generated adapter MUST:
+The generated adapter MUST:
 
 - identify itself as opendump-derived;
-- reference `AGENTS.md` / `HARNESS_BOOTSTRAP.md` when those canonical files are accessible, or faithfully mirror their minimum semantics when they are not;
-- declare exactly one `store` mode;
-- declare exactly one concrete `location` for `github`, `local-files`, or `artifact`;
-- contain no runtime branching such as "GitHub if available, otherwise local";
+- reference `AGENTS.md` / `HARNESS_BOOTSTRAP.md` when accessible, or preserve their required semantics when they are not;
+- declare exactly one `store` mode and one concrete `location`;
+- contain no runtime fallback branching;
 - require startup reads from the bound store;
-- require same-turn task persistence to the bound store;
-- forbid writes to `JPilsinger/opendump` as a user task store;
-- state that unavailable store access must be reported rather than silently switching modes;
+- require same-turn task persistence to that store;
+- forbid `JPilsinger/opendump` and other known published upstreams as user task stores;
+- require inaccessible store bindings to be reported instead of silently switched;
 - preserve unrelated existing host/project instructions.
 
-When the instruction surface is shared, use one replaceable managed block when the host's syntax permits it:
+When syntax permits, use one replaceable managed block:
 
 ```markdown
 <!-- OPENDUMP:BEGIN store=<mode> location=<concrete location> -->
@@ -303,38 +319,35 @@ When the instruction surface is shared, use one replaceable managed block when t
 <!-- OPENDUMP:END -->
 ```
 
-If the host uses a different native structure, preserve the same idempotence and single-binding semantics using that structure.
+Repeated cold start MUST update/replace the existing adapter rather than append duplicates.
 
-Repeated cold start MUST replace/update the existing opendump adapter rather than append duplicates.
+If the adapter can be generated but the instruction surface cannot be written, provide the exact manual payload and enter:
 
-If the agent can generate but cannot write the native instruction surface, it MUST provide the exact payload for manual installation and enter:
-
-```text
-BLOCKED
-reason: manual_adapter_installation_required
+```yaml
+opendump_initialization:
+  status: blocked
+  state: STORE_BOUND
+  reason: manual_adapter_installation_required
 ```
 
-Generating the payload is not installation. After the user installs it, cold start resumes at this phase and MUST verify the installed content before success.
+Manual payload generation is not installation. After the user installs it, resume Phase 5 and verify the persisted content.
 
-Transition to `ADAPTER_INSTALLED` only after the persistent surface actually contains the intended adapter.
+Transition to `ADAPTER_INSTALLED` only after the intended adapter actually exists on the persistent instruction surface.
 
 ## Phase 6 — mandatory verification
 
-Verification is a hard gate, not a best-effort step.
+Verification is a hard gate. The agent MUST:
 
-The agent MUST:
+1. read the native persistent instruction surface back;
+2. parse the installed opendump binding;
+3. confirm exactly one mode and concrete location;
+4. confirm the read-back binding equals the intended Phase 4 binding;
+5. independently resolve that location and prove current store read access;
+6. confirm the canonical task-state shape for the selected mode;
+7. for file/GitHub modes, confirm `AGENTS.md` and `HARNESS_BOOTSTRAP.md` are accessible;
+8. verify current store write capability using an already-successful materialization/write, authoritative permission evidence, or a safe reversible probe appropriate to the host.
 
-1. Read the native persistent instruction surface back after installation.
-2. Parse/read the installed opendump binding.
-3. Confirm exactly one mode and one concrete location.
-4. Confirm the read-back binding equals the intended binding from Phase 4.
-5. Resolve that location independently and re-read enough of the bound store to prove current read access.
-6. Confirm the canonical task-state schema is present for the selected mode.
-7. For GitHub/file modes, confirm the canonical protocol documents are accessible.
-8. Verify current write capability using a successful materialization/write already performed, authoritative permission evidence, or a safe reversible probe appropriate to the host.
-9. Confirm the store does not need any secondary binding/config manifest for normal operation.
-
-If any verification fails, do not claim installation succeeded. Repair and re-verify when possible; otherwise enter `BLOCKED` with the failing gate and reason.
+If verification fails, repair and re-verify when possible; otherwise enter `BLOCKED` with the current state and concrete reason. Never claim installation succeeded without verification.
 
 Transition to `VERIFIED` only after all applicable checks pass.
 
@@ -342,19 +355,20 @@ Transition to `VERIFIED` only after all applicable checks pass.
 
 After verification:
 
-1. Read `private.md` and `business.md` (or artifact equivalents).
-2. Do not load completed archives during routine initialization unless needed to resolve a specific conflict/migration.
-3. Surface current Backlog + In progress succinctly.
-4. Continue normal operation under `AGENTS.md`.
+1. read `private.md` and `business.md` (or artifact equivalents);
+2. do not load completed archives unless needed for a specific conflict/migration;
+3. surface current Backlog + In progress succinctly;
+4. continue under `AGENTS.md` runtime semantics.
 
 Only now transition to `READY`.
 
-A successful initialization result is equivalent to:
+Semantic success result:
 
 ```yaml
 opendump_initialization:
   status: ready
-  harness: <host>
+  state: READY
+  host: <host>
   instruction_surface: <surface>
   store: <github|local-files|artifact>
   location: <concrete location>
@@ -363,67 +377,63 @@ opendump_initialization:
   tasks_loaded: true
 ```
 
-The user-facing response MAY be conversational and does not need to print this YAML verbatim, but it MUST communicate the concrete store and successful verification accurately.
+The user-facing response may be conversational but MUST accurately communicate the concrete store and successful verification.
 
 ## Blocked and unsupported results
 
-When blocked, state the exact state/reason and the minimum required next action. Example semantic result:
+When blocked, report the last satisfied state, concrete reason, and minimum next action.
 
-```yaml
-opendump_initialization:
-  status: blocked
-  phase: ADAPTER_INSTALLED
-  reason: manual_adapter_installation_required
-```
+When unsupported, explicitly state that reliable task tracking is unavailable in the current host. Do not treat chat memory as the task database.
 
-When unsupported, explicitly state that reliable task tracking is unavailable in the current host and do not pretend chat memory is the database.
+Never convert `BLOCKED` or `UNSUPPORTED` into a weaker silent success.
 
-Do not convert `BLOCKED` or `UNSUPPORTED` into a weaker silent success.
+## Normal startup after initialization
 
-## Startup behavior after initialization
-
-Normal sessions do not rerun cold start automatically.
+Normal sessions do not rerun this protocol.
 
 At startup:
 
-1. Read the installed host adapter and identify the locked store/location.
-2. Read live open tasks from that store.
-3. When file/GitHub canonical workflow docs are accessible, follow current `AGENTS.md` semantics.
-4. If the adapter is missing, ambiguous, or invalid, do not infer the active store from a copied config file; run cold start or report the missing binding.
-5. If the bound store is inaccessible, report the failure and stop claiming persistence. Do not switch stores silently.
-6. Run this full cold-start protocol again only when explicitly requested, when the binding is invalid, or when the user requests a mode/location change.
+1. read the installed host adapter and resolve its locked store/location;
+2. read live open tasks from that store;
+3. for file/GitHub modes, read current `AGENTS.md` when accessible;
+4. do not read this bootstrap document unless cold start/recovery is actually required;
+5. if the adapter is missing/invalid or the store is inaccessible, report the failure rather than guessing or silently switching.
 
-## Minimum semantics every generated adapter must preserve
+Run full cold start again only when explicitly requested, when the binding is missing/invalid, for recovery, or for a requested mode/location change.
 
-- Exactly one bound store mode and concrete location.
-- The adapter is the sole persistent binding record for that host environment.
-- Public upstream is never a user task write target.
-- Startup reads live tasks from the bound store.
-- Same-turn task mutations persist only to that store.
-- No silent mode switching.
-- Explicit cold start executes this state machine.
-- Manual adapter text is not considered installed until persisted and verified.
-- Failure to access the bound store is reported accurately.
-- Normal task semantics come from `AGENTS.md`.
-- Source-material transport/staging is not part of canonical task state.
+## Minimum adapter semantics
+
+Every generated adapter MUST preserve:
+
+- exactly one store mode and concrete location;
+- adapter as sole persistent binding record for that host environment;
+- public upstream never used as user task store;
+- startup reads live tasks from the bound store;
+- same-turn task mutations persist only to that store;
+- no silent mode switching;
+- explicit cold start invokes this protocol;
+- manual adapter text is not installed until persisted and verified;
+- inaccessible bound store is reported accurately;
+- normal task semantics come from `AGENTS.md`;
+- source transport/staging is outside canonical task state.
 
 ## Migration / mode change
 
-A mode/location change is an explicit re-initialization operation.
+A mode/location change is explicit re-initialization:
 
-1. Preserve existing canonical task state.
-2. Materialize/copy it into the target store.
-3. Re-run store binding, adapter installation, and verification for the new target.
-4. Replace the old adapter binding only after the new target verifies successfully.
-5. Never operate two authoritative stores in parallel.
+1. preserve existing canonical task state;
+2. materialize/copy it into the target store;
+3. run target binding, adapter installation, and verification;
+4. replace the old adapter binding only after the target verifies;
+5. never operate two authoritative stores in parallel.
 
-No store-side binding manifest needs migration because environment-specific binding state belongs only to the adapter.
+There is no store-side binding manifest to migrate.
 
-## Maintenance rule
+## Maintenance
 
-- Change normal task semantics in `AGENTS.md`.
-- Change initialization semantics in this file.
+- Change runtime task semantics in `AGENTS.md`.
+- Change initialization/recovery semantics here.
 - Keep the public template free of committed host-specific adapters and environment-specific binding manifests.
-- Keep source-ingestion transport/staging mechanisms outside the canonical store schema.
-- When an initialized user environment contains a generated adapter, regenerate that downstream adapter from the canonical documents after relevant semantic changes.
+- Keep source-ingestion transport/staging outside the canonical store schema.
+- Regenerate downstream adapters after relevant protocol changes.
 - Never copy a generated adapter into the public template as a compatibility shortcut.
