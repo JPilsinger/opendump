@@ -1,60 +1,54 @@
 # opendump
 
-Open-source place to dump and track tasks. Your AI agent catches, progresses, and archives them across capable host environments.
+Open-source place to dump and track personal and business tasks with an AI agent.
 
-## About
+OpenDump is host-neutral: the task model stays the same while the bound store may be GitHub, durable local files, or a durable host artifact.
 
-opendump is a harness-portable task dump: you talk to your agent, it captures personal and work tasks, and persists them to **your** GitHub repo when you want sync — or to local files / a durable artifact when you do not. Send a screenshot, snap a photo, attach a document, point at a file, or provide other content — the agent extracts the actionable work through whatever input capabilities the current host exposes.
+## How it works
 
-`JPilsinger/opendump` is the **public GitHub template and workflow reference**, not a personal task database. Personal and shared tasks live in a repo **you** create with **Use this template**, or another explicitly locked durable store.
+You talk normally. The agent captures trackable work, progresses it, and archives completed tasks in a verified store.
 
-**Preferred store:** your own GitHub template instance (sync + history + shareable). Cold start can also lock local files or a durable artifact when GitHub is unavailable or explicitly declined. Hosts without any durable writable store cannot track reliably and must say so.
+Source material can arrive however the current host supports it — chat, screenshots, photos, audio, documents, files, links, or attachments. OpenDump stores the resulting **task state**, not the transport/staging lifecycle of that source material.
+
+`JPilsinger/opendump` is the **public template and protocol reference**, never a personal task database.
+
+A **user-controlled store** is owned by you or explicitly authorized by you for OpenDump task storage.
 
 ## Setup
 
-### Preferred: your own repo from the template
+Preferred GitHub flow:
 
-1. Open `JPilsinger/opendump` on GitHub → **Use this template** → create **your** repository (private is fine).
+1. Create a user-controlled repository. Using GitHub's **Use this template** is the easiest path, but any writable repository can be materialized with the canonical OpenDump files.
 2. In your host chat, send:
 
 ```text
 review https://github.com/JPilsinger/opendump and start the coldstart procedure.
 ```
 
-3. The agent reviews the public template for workflow rules, identifies its own host/instruction surface and actual capabilities, then binds exactly one **user-owned** store.
-4. It generates the host-native adapter only after that discovery; the public template does not preinstall product-specific adapters.
-5. The generated adapter records exactly one store mode and concrete location. OpenDump does not duplicate that environment-specific binding inside the task store.
-6. Cold start is successful only after the adapter has been installed/read back, the bound store has been independently verified, and live open tasks have been loaded.
-7. Talk normally — trackable work is auto-captured into the verified store.
+3. The agent identifies its host, persistent instruction surface, and actual capabilities.
+4. It selects exactly one durable store, materializes/validates the canonical task schema, generates one host-native adapter containing the concrete binding, reads it back, independently verifies the store, and loads live tasks.
+5. Only then is initialization `READY`.
 
-### Template copies and repository identity
+If no repository exists yet and the host can create one, cold start may create a normal repository and write the canonical files; a dedicated template-creation API is not required.
 
-GitHub's template flow copies the canonical files verbatim. No seed/config manifest is required.
+## Store modes
 
-During cold start the agent determines repository role from the **actual repository identity**:
+OpenDump binds exactly one mode/location per host adapter:
 
-- exact `JPilsinger/opendump` → public upstream; task writes forbidden;
-- a different user/org repository with the canonical OpenDump structure → candidate user-owned store, subject to access/ownership verification.
+| Mode | Store |
+|---|---|
+| `github` | User-controlled GitHub repository (preferred for sync/history) |
+| `local-files` | Durable local markdown files |
+| `artifact` | Durable host artifact with equivalent task collections |
+| `unsupported` | No reliable durable store is available |
 
-Copied files never make a different repository the public upstream.
+The adapter is the **sole persistent binding record** for the active mode and concrete location in that host environment. OpenDump does not duplicate repository names, branches, paths, or host identity into the task store.
 
-### One-liner only
+If the bound store becomes inaccessible, the agent reports the problem rather than silently switching modes.
 
-You can send the one-liner without creating a repo first. The deterministic cold-start protocol prefers GitHub. If the host can create a user-owned template instance itself, it does so. If GitHub requires a user action the host cannot perform, initialization is explicitly **blocked** until that action is completed rather than silently falling back to a weaker store.
+## Deterministic cold start
 
-## Without GitHub
-
-If GitHub is explicitly declined or not a feasible path, the same protocol can bind:
-
-1. `local-files` — durable markdown files implementing the canonical task-state schema;
-2. `artifact` — a durable host artifact mirroring the same task-state collections;
-3. `unsupported` — no reliable tracking when the host has no durable writable store/instruction arrangement.
-
-The agent must lock exactly one mode and concrete location in the host adapter. It must never leave persistent instructions saying “GitHub or local” and decide differently at runtime.
-
-## Deterministic initialization
-
-`HARNESS_BOOTSTRAP.md` defines cold start as a formal state machine:
+`HARNESS_BOOTSTRAP.md` defines initialization as:
 
 ```text
 UNINITIALIZED
@@ -69,64 +63,58 @@ UNINITIALIZED
 
 `READY` is the only successful terminal state. `BLOCKED` and `UNSUPPORTED` are explicit non-success states.
 
-The host agent is trusted to intelligently discover facts about its own environment. The protocol then deterministically defines what those facts imply: **intelligence discovers facts; the protocol decides the outcome.**
+The guiding principle is:
 
-## Harness-neutral template
+> Intelligence discovers facts. The protocol decides what those facts imply.
 
-The public template intentionally ships **no product-specific rule, skill, bridge, project-instruction file, or environment-specific binding manifest**. Cold start discovers the host's native persistent instruction mechanism and generates the adapter there.
-
-That means:
-
-- no host gets privileged treatment in the canonical template;
-- no host-specific instructions execute before environment discovery;
-- generated adapters cannot drift into competing canonical specifications;
-- future hosts follow the same protocol without requiring a template update merely to add their file naming convention;
-- repository moves, renames, branches, and host identity are not duplicated into stale store metadata.
-
-`AGENTS.md` remains intentionally: it is the portable canonical runtime specification, not proof of a particular host.
+Normal sessions do **not** run the bootstrap protocol. They read the installed adapter, load live task state, and follow `AGENTS.md`. Bootstrap is used for initial setup, recovery, or an explicit store change.
 
 ## Minimal store schema
 
-OpenDump stores **task state**, not environment-binding state or source-material transport state.
-
-The canonical task-state collections are:
+Canonical task state:
 
 | File | Purpose |
-|------|---------|
-| `private.md` | Open personal tasks |
-| `business.md` | Open work tasks |
-| `private-completed.md` | Completed personal-task archive |
-| `business-completed.md` | Completed work-task archive |
+|---|---|
+| `private.md` | Personal Backlog + In progress |
+| `business.md` | Business Backlog + In progress |
+| `private-completed.md` | Completed personal tasks |
+| `business-completed.md` | Completed business tasks |
 
-For GitHub/local-file stores, these canonical protocol files accompany the task state:
+For file/GitHub stores these protocol files accompany the task state:
 
 | File | Purpose |
-|------|---------|
-| `AGENTS.md` | Canonical normal task workflow + store-mode semantics |
-| `HARNESS_BOOTSTRAP.md` | Normative host-independent initialization state machine, capability gates, binding and verification |
+|---|---|
+| `AGENTS.md` | Runtime task workflow semantics |
+| `HARNESS_BOOTSTRAP.md` | Cold-start, recovery, binding, adapter, and verification protocol |
 
-The **host adapter is the sole persistent binding record** for the active mode and location in that host environment.
+That's the canonical OpenDump footprint. No host-specific adapters, environment-binding manifests, inbox directories, processed directories, upload queues, or staging folders belong in the public template.
 
-Attachments, uploads, screenshots, audio, watched folders, staging queues, and processed-source archives are not part of the canonical store. The host may accept any of those inputs; OpenDump extracts the task intent and persists only the resulting task state unless the user explicitly requests source retention.
+## Host-neutral template
 
-Host-specific adapter files are generated downstream during initialization and are not part of the public template.
+The public template intentionally ships no product-specific adapter, rule, skill, bridge, or project-instruction payload.
 
-## Lifecycle (short)
+Cold start discovers the host's actual persistent instruction mechanism and generates the adapter downstream. `AGENTS.md` remains part of the template because it is the portable runtime specification, not evidence of any particular host.
 
-1. **Capture** — New trackable work → Backlog in the locked store, persist same turn
-2. **Progress** — Dated notes; move to In progress
-3. **Done** — Move to the matching completed archive with `YYYY-MM-DD`
-4. **Status** — “What’s up?” opens with all open Private + Business tasks
+## Lifecycle
 
-Full task semantics: [`AGENTS.md`](./AGENTS.md). Initialization protocol: [`HARNESS_BOOTSTRAP.md`](./HARNESS_BOOTSTRAP.md).
+1. **Capture** — new trackable work → Backlog, persisted in the same turn.
+2. **Progress** — move to In progress and append dated notes.
+3. **Done** — remove from the active list and append to the matching completed archive with `YYYY-MM-DD`.
+4. **Status** — broad status questions open with all current Backlog + In progress tasks, Private then Business.
+
+Full runtime semantics: [`AGENTS.md`](./AGENTS.md).
+
+Initialization/recovery protocol: [`HARNESS_BOOTSTRAP.md`](./HARNESS_BOOTSTRAP.md).
 
 ## Privacy
 
-Task files stay empty in the public template. Treat your instance as sensitive. Prefer a **private** GitHub repo for personal or family use. Source material is not retained in the OpenDump store by default.
+The public template contains no real tasks. Treat your own store as sensitive; a private GitHub repository is usually appropriate for personal or confidential work.
+
+Source material is not retained in the OpenDump store by default.
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](./CONTRIBUTING.md). Fork and adapt freely; ideas that reduce ambiguity or improve cross-host initialization are especially welcome.
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md). Changes that reduce ambiguity or simplify cross-host behavior are especially welcome.
 
 ## License
 
