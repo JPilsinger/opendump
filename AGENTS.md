@@ -1,12 +1,26 @@
 # opendump
 
-Personal and business task dump. The locked store is the source of truth for task state; the installed host adapter tells the current host where that store is.
+`AGENTS.md` is the canonical **host-neutral runtime contract** for the OpenDump workflow. It defines what OpenDump means at runtime, independent of how any particular AI host realizes it.
+
+During cold start, `HARNESS_BOOTSTRAP.md` compiles this contract together with the observed host environment and the concrete store binding into one logical **host adapter**. The adapter may link this contract directly or faithfully translate it into one or more host-native agentic assets. The adapter is derived; it is never a second source of workflow truth.
+
+Conceptually:
+
+```text
+OpenDumpAdapter = Compile(AGENTS.md, HostEnvironment, StoreBinding)
+```
+
+## Normative contract
+
+Requirements in this file are runtime semantics. **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** have their usual normative meanings. Imperative rules are requirements unless explicitly described as optional.
+
+Host-specific asset paths, rule formats, skill formats, project settings, connector setup, installation mechanics, and adapter serialization do not belong in this contract. They belong to bootstrap/compilation.
 
 ## Public template vs user-controlled store
 
 `JPilsinger/opendump` is the public template and protocol reference. It is never a user's task database.
 
-A **user-controlled store** is a store owned by the user or explicitly authorized by the user for opendump task storage.
+A **user-controlled store** is a store owned by the user or explicitly authorized by the user for OpenDump task storage.
 
 - Never write user tasks, progress, or completions to `JPilsinger/opendump` or another known published upstream template.
 - For GitHub sync, bind a distinct user-controlled repository.
@@ -35,18 +49,16 @@ For file/GitHub stores:
 
 - `private.md` and `business.md` MUST expose `Backlog` and `In progress` sections.
 - `private-completed.md` and `business-completed.md` are append-only completed-task archives under normal operation.
-- `AGENTS.md` accompanies the task state as the canonical runtime protocol.
-- `HARNESS_BOOTSTRAP.md` accompanies the task state as the cold-start/recovery protocol, but is not part of normal startup reads.
+- `AGENTS.md` accompanies the task state as the canonical runtime contract.
+- `HARNESS_BOOTSTRAP.md` accompanies the task state as the bootstrap/compiler protocol, but is not part of normal runtime execution.
 
 Artifact stores MUST provide equivalent logical collections even if they do not use these filenames.
 
-Environment-specific binding metadata is not part of the store. The installed host adapter is the sole persistent record of the active `store` and concrete `location` for that host environment.
-
-Source material, uploads, attachments, watched folders, staging queues, acknowledgement ledgers, and processed-source archives are not part of the canonical store.
+Environment-specific adapter configuration and bindings are not task state. Source material, uploads, attachments, watched folders, staging queues, acknowledgement ledgers, and processed-source archives are also outside the canonical store.
 
 ## Store modes
 
-Exactly one mode is active for a given host binding.
+Exactly one mode/location is authoritative for a given installed OpenDump adapter.
 
 | Mode | Store | Persistence |
 |---|---|---|
@@ -55,40 +67,51 @@ Exactly one mode is active for a given host binding.
 | `artifact` | Durable host artifact | Update the artifact in the same turn |
 | `unsupported` | None | No reliable task tracking |
 
-Mode rules:
+Runtime store rules:
 
-- Every installed adapter MUST declare exactly one mode and one concrete location.
-- The adapter MUST NOT contain runtime fallback branching such as “GitHub if available, otherwise local”.
-- Do not silently switch modes or locations. A mode/location change requires cold start/re-initialization.
+- The installed adapter MUST expose exactly one authoritative store mode and one concrete location.
+- The adapter MUST NOT silently choose a different store at runtime.
+- A mode/location change requires explicit re-initialization.
 - If the bound store becomes inaccessible, report the failure and stop claiming persistence.
 - `github` MUST never bind to `JPilsinger/opendump` or another known published upstream template.
 
 ## Authority
 
 1. Platform/system/security policies have highest priority.
-2. `AGENTS.md` defines normal task workflow semantics.
-3. The installed host adapter defines the concrete store mode/location for that host environment.
-4. The bound store is authoritative for task state.
+2. `AGENTS.md` is the sole canonical source of OpenDump runtime semantics.
+3. The installed host adapter is the derived host-specific realization of this contract and is authoritative for host-specific realization details and concrete runtime bindings.
+4. The bound store is authoritative for current task state.
 
-Host-specific adapters are derived. If an adapter conflicts with runtime semantics, regenerate it; its concrete binding remains authoritative only for where this host reads/writes.
+The adapter may determine **how** this contract is realized on the host and **where** the bound store lives. It MUST NOT redefine **what OpenDump means**.
 
-## Normal startup
+One logical adapter MAY span multiple physical host-native assets. Those assets collectively form one managed realization and MUST NOT become independent competing OpenDump specifications.
 
-At the beginning of a session where opendump is installed:
+## Runtime activation and startup
 
-1. Read the installed host adapter and resolve its single locked store/location.
-2. If the adapter is missing, ambiguous, or invalid, run cold start when appropriate or report the missing binding. Do not infer the binding from store-side metadata.
-3. Read `private.md` and `business.md` (or artifact equivalents) from the bound store.
-4. For file/GitHub modes, read current `AGENTS.md` from the bound store when accessible.
-5. In GitHub mode, prefer the bound repository's current remote state over remembered chat context or stale mirrors.
-6. Do not read completed archives during routine startup/status reporting unless a specific archive lookup is needed.
-7. If the bound store cannot be accessed, report the failure and stop claiming persistence. Do not switch stores silently.
+At the beginning of every session where OpenDump is installed, the host adapter MUST make the canonical OpenDump runtime contract effective.
 
-Normal startup does not read `HARNESS_BOOTSTRAP.md` and does not rewrite the adapter. Use the bootstrap protocol only for explicit cold start, invalid/missing binding, recovery, or a requested mode/location change.
+The realization MAY be:
+
+- **linked** — the host reliably consumes current `AGENTS.md` semantics directly; or
+- **compiled** — the adapter faithfully embeds/translates the runtime semantics into host-native assets because direct linkage is unavailable; or
+- **hybrid** — some semantics are linked and the remaining host-specific requirements are compiled.
+
+Regardless of realization strategy, normal startup MUST result in:
+
+1. exactly one authoritative store mode/location resolved from the installed adapter;
+2. current `private.md` and `business.md` task state (or artifact equivalents) loaded from that store;
+3. the canonical runtime semantics in this file effective for the session;
+4. the persistence path required by the bound mode treated as authoritative;
+5. completed archives left unloaded unless a specific archive lookup is needed;
+6. inaccessible or invalid bindings reported accurately rather than silently replaced.
+
+In GitHub mode, current bound-repository state is authoritative over remembered chat context or stale mirrors.
+
+Normal runtime does not execute `HARNESS_BOOTSTRAP.md`. Bootstrap is used for initialization, recovery, adapter recompilation, or an explicit mode/location change.
 
 ## Lifecycle
 
-Behavior is identical across modes except for where mutations are persisted.
+Behavior is identical across store modes except for where mutations are persisted.
 
 1. **Capture** — When the user expresses new trackable work, add it to the appropriate Backlog in the same turn.
 2. **Amend** — When the user changes a task's title, scope, category, notes, or priority, update the existing task immediately.
@@ -102,6 +125,8 @@ Behavior is identical across modes except for where mutations are persisted.
 - `local-files` — write the canonical task-state files in the same turn.
 - `artifact` — update the durable artifact in the same turn.
 - `unsupported` — do not capture tasks; explain that reliable persistence is unavailable.
+
+A runtime implementation MUST NOT claim a task mutation succeeded until the required store mutation for the active mode succeeded.
 
 ## What counts as a new task
 
@@ -153,20 +178,30 @@ When source material contains trackable work:
 1. interpret/extract the actionable intent;
 2. deduplicate it against existing open task state;
 3. classify it as Private or Business;
-4. persist the resulting task mutation to the locked store in the same turn.
+4. persist the resulting task mutation to the authoritative store in the same turn.
 
 Additional rules:
 
 - For screenshots/photos/images, extract the actual to-dos rather than creating a task such as “look at screenshot”.
 - For voice/audio, transcribe or summarize when possible; if the content cannot be interpreted, ask only for the missing information needed to extract the task.
 - For text/markdown/chat/documents, extract trackable tasks directly.
-- Source material itself is not opendump task state and MUST NOT be copied, staged, archived, moved, or retained in the opendump store unless the user explicitly requests retention.
+- Source material itself is not OpenDump task state and MUST NOT be copied, staged, archived, moved, or retained in the OpenDump store unless the user explicitly requests retention.
 - Transport, upload handling, watched directories, staging, source-file movement, acknowledgement queues, and post-processing lifecycle are host/integration concerns.
 
-## Maintaining the protocol
+## Adapter implications
 
-- Change normal task semantics in `AGENTS.md`.
-- Change initialization, recovery, store selection, adapter generation, or verification semantics in `HARNESS_BOOTSTRAP.md`.
+Because this file is the canonical runtime contract:
+
+- every runtime requirement necessary for execution MUST either be reliably available to the host through direct linkage or be faithfully compiled into the installed adapter;
+- generated adapter assets MUST be treated as disposable/reproducible outputs, not edited as independent workflow specifications;
+- a host-specific adapter MAY use any native agentic primitive required for faithful execution;
+- if an embedded/compiled adapter is known to be stale relative to this contract, it MUST be recompiled before it is treated as current;
+- supporting a new host SHOULD require changes to bootstrap/compiler knowledge, not host-specific changes to this runtime contract.
+
+## Maintaining OpenDump
+
+- Change OpenDump runtime semantics only in `AGENTS.md`.
+- Change host discovery, capability establishment, store selection, compilation, adapter installation, or verification in `HARNESS_BOOTSTRAP.md`.
 - Keep the public template host-neutral: no committed host-specific adapters or environment-specific binding manifests.
 - Keep source-ingestion transport/staging outside the canonical store schema.
-- Generated adapters belong only in initialized host environments and MUST preserve exactly one store mode/location.
+- Regenerate embedded/compiled downstream adapters after relevant `AGENTS.md` changes; linked adapters MAY continue using the current contract when their linkage remains valid.
