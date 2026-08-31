@@ -1,146 +1,133 @@
 # opendump
 
-Personal and business task dump. Markdown task lists are the source of truth; the **store** that holds them may be GitHub (preferred), a local file tree, or a durable host artifact. The workflow is designed to be portable across capable agent environments.
+Personal and business task dump. The locked store is the source of truth for task state; the installed host adapter tells the current host where that store is.
 
-## Public template vs your store (critical)
+## Public template vs user-controlled store
 
-`https://github.com/JPilsinger/opendump` is the **public upstream template only**. It is **not** a personal or shared task database.
+`JPilsinger/opendump` is the public template and protocol reference. It is never a user's task database.
 
-- **Never** commit, push, or write user tasks, progress, or completions into `JPilsinger/opendump` (or any other published upstream template).
-- For GitHub sync, the user must have a **user-specific** repository created from this template (**Use this template**), then lock that repo as the store.
-- During cold start, if GitHub mode is chosen and the user has no personal opendump repo yet, **create or help create one** using an available GitHub/template mechanism. Do not fall back to pushing into the public template.
-- Reviewing the public template for workflow docs is fine; mutating its task files for a user’s work is forbidden.
+A **user-controlled store** is a store owned by the user or explicitly authorized by the user for opendump task storage.
 
-**Setup one-liner** (host chat):
+- Never write user tasks, progress, or completions to `JPilsinger/opendump` or another known published upstream template.
+- For GitHub sync, bind a distinct user-controlled repository.
+- Reviewing the public template for protocol docs is allowed; mutating its task files for user work is not.
+
+Preferred cold-start request:
 
 ```text
 review https://github.com/JPilsinger/opendump and start the coldstart procedure.
 ```
 
-That starts cold start from the public template as the *workflow reference*. The agent must then lock a **user-owned** store (new template instance, existing personal repo, local files, or artifact) — never the public template as the write target.
+Cold start is defined by `HARNESS_BOOTSTRAP.md`.
 
 ## Canonical store schema
 
-The canonical **task-state schema** contains exactly these four logical task collections:
+The canonical task-state schema contains exactly four logical collections:
 
 | File / artifact section | Role |
 |---|---|
-| `private.md` | Personal open tasks: Backlog / In progress |
-| `business.md` | Work open tasks: Backlog / In progress |
-| `private-completed.md` | Completed personal-task archive |
-| `business-completed.md` | Completed work-task archive |
+| `private.md` | Personal open tasks |
+| `business.md` | Work open tasks |
+| `private-completed.md` | Completed personal tasks |
+| `business-completed.md` | Completed work tasks |
 
-For GitHub and local-file stores, these canonical protocol files accompany the task state:
+For file/GitHub stores:
 
-| Path | Role |
-|---|---|
-| `AGENTS.md` | Authoritative normal task workflow semantics |
-| `HARNESS_BOOTSTRAP.md` | Authoritative host-independent cold-start / adapter protocol |
+- `private.md` and `business.md` MUST expose `Backlog` and `In progress` sections.
+- `private-completed.md` and `business-completed.md` are append-only completed-task archives under normal operation.
+- `AGENTS.md` accompanies the task state as the canonical runtime protocol.
+- `HARNESS_BOOTSTRAP.md` accompanies the task state as the cold-start/recovery protocol, but is not part of normal startup reads.
 
-A durable artifact store MUST mirror the same four task-state collections even if it does not use these filenames.
+Artifact stores MUST provide equivalent logical collections even if they do not use these filenames.
 
-Environment-specific binding metadata is **not** part of the canonical store. The installed host adapter is the sole persistent record of the active store mode and concrete location for that host environment.
+Environment-specific binding metadata is not part of the store. The installed host adapter is the sole persistent record of the active `store` and concrete `location` for that host environment.
 
-Source material, uploads, attachments, staging folders, watched directories, transport queues, and processed-source archives are **not** part of the canonical opendump store schema.
-
-The public template intentionally contains **no host-specific adapter files or directories**. Cold start discovers the native persistent instruction surface and generates the required adapter in the initialized user environment.
+Source material, uploads, attachments, watched folders, staging queues, acknowledgement ledgers, and processed-source archives are not part of the canonical store.
 
 ## Store modes
 
-Exactly **one** mode is active for a given opendump installation. Host project instructions / adapters must state that mode explicitly — never leave “GitHub or local” unresolved in persistent instructions.
+Exactly one mode is active for a given host binding.
 
-| Mode | Store | Sync | When to use |
-|------|--------|------|-------------|
-| `github` | **User-owned** GitHub opendump repo (created via **Use this template**), usually `main` | Commit + push each mutation **only to that user repo** | Preferred whenever the host can use GitHub |
-| `local-files` | Markdown files implementing the canonical schema | Write files same turn; no remote | User has no GitHub, or prefers local-only |
-| `artifact` | Durable host artifact mirroring the canonical task-state collections | Update the artifact same turn; no remote | Host has durable artifacts but not usable files/GitHub |
-| `unsupported` | None | No reliable tracking | No usable GitHub, durable files, or durable artifact |
+| Mode | Store | Persistence |
+|---|---|---|
+| `github` | User-controlled GitHub repository | Commit/push task mutations to the bound repository |
+| `local-files` | Durable local markdown files | Write task mutations in the same turn |
+| `artifact` | Durable host artifact | Update the artifact in the same turn |
+| `unsupported` | None | No reliable task tracking |
 
-**Preferred order when choosing a mode (cold start):** create/connect **user-owned** `github` repo from the template → complete a concrete GitHub setup action if available → `local-files` or `artifact` → `unsupported`.
+Mode rules:
 
-Hard ban: locking `github` location to `JPilsinger/opendump` (or writing tasks there) is **invalid**. Always use a distinct user/org repo.
-
-### Mode rules
-
-- **Declare the store in every adapter** — include `store:` / mode, and the concrete location (`owner/repo@branch`, filesystem path, or artifact id/name). Ambiguous adapters are invalid; regenerate them.
-- **Adapter is the binding record** — do not duplicate environment-specific binding state into the task store.
-- **Do not silently switch modes** mid-session. If the locked store becomes unavailable, say so, stop claiming writes succeeded, and offer reconnect or a cold-start mode change.
-- **Status and startup replies** should name the active store briefly when relevant (especially after cold start or on failure).
-- **Upgrade path** — `local-files` / `artifact` → `github` is supported by copying the canonical task state into a new template instance, then re-running cold start in `github` mode. Do not invent automatic two-way sync in v1.
-- **`unsupported`** — never pretend chat memory is the task database. Tell the user reliably tracking is impossible here and help them move to an environment with GitHub, files, or durable artifacts.
+- Every installed adapter MUST declare exactly one mode and one concrete location.
+- The adapter MUST NOT contain runtime fallback branching such as “GitHub if available, otherwise local”.
+- Do not silently switch modes or locations. A mode/location change requires cold start/re-initialization.
+- If the bound store becomes inaccessible, report the failure and stop claiming persistence.
+- `github` MUST never bind to `JPilsinger/opendump` or another known published upstream template.
 
 ## Authority
 
-- The **active store** is the source of truth for task state.
-- `AGENTS.md` is authoritative for task workflow behavior.
-- `HARNESS_BOOTSTRAP.md` is authoritative for translating/installing that behavior into the host environment and for choosing/locking store mode.
-- The installed host adapter is authoritative only for the concrete `store` + `location` binding in that host environment.
-- In file-based stores, `private.md` and `business.md` are authoritative for open and in-progress task state; `private-completed.md` and `business-completed.md` are authoritative for completed history. Artifact stores mirror the same section semantics.
-- Host-specific files and project-instruction fields are derived adapters. If they conflict with canonical workflow docs, the canonical docs win except for the adapter's concrete binding, which must remain unambiguous.
-- Platform/system/security policies remain higher priority than repository instructions.
+1. Platform/system/security policies have highest priority.
+2. `AGENTS.md` defines normal task workflow semantics.
+3. The installed host adapter defines the concrete store mode/location for that host environment.
+4. The bound store is authoritative for task state.
 
-## Startup sync
+Host-specific adapters are derived. If an adapter conflicts with runtime semantics, regenerate it; its concrete binding remains authoritative only for where this host reads/writes.
 
-At the beginning of every new conversation/session where opendump is installed, **before relying on prior chat context**:
+## Normal startup
 
-1. Read the installed host adapter and note the **locked store mode and location**.
-2. Load live open tasks from that store (`private.md` / `business.md`, or the artifact equivalent).
-3. When mode is `github` and access is available, treat the remote/canonical checkout as fresher than remembered chat context or stale mirrors.
-4. Read `AGENTS.md` and `HARNESS_BOOTSTRAP.md` from the store when available (for `github` / `local-files`).
-5. Do **not** load completed archives during routine startup or status reporting. Read them only when the user asks for completed history or a specific archive lookup is needed.
-6. If the adapter is missing, ambiguous, or invalid, do not infer the active binding from a copied store-side config file; run cold start or report the missing binding.
-7. If the locked store cannot be accessed, say so explicitly and do not pretend it was reviewed or updated.
+At the beginning of a session where opendump is installed:
 
-A normal startup sync reads the adapter, store, and tasks. It does **not** silently rewrite persistent instructions unless the user explicitly requests a cold start/bootstrap or the existing binding is invalid.
+1. Read the installed host adapter and resolve its single locked store/location.
+2. If the adapter is missing, ambiguous, or invalid, run cold start when appropriate or report the missing binding. Do not infer the binding from store-side metadata.
+3. Read `private.md` and `business.md` (or artifact equivalents) from the bound store.
+4. For file/GitHub modes, read current `AGENTS.md` from the bound store when accessible.
+5. In GitHub mode, prefer the bound repository's current remote state over remembered chat context or stale mirrors.
+6. Do not read completed archives during routine startup/status reporting unless a specific archive lookup is needed.
+7. If the bound store cannot be accessed, report the failure and stop claiming persistence. Do not switch stores silently.
 
-## Harness-independent cold start
-
-When the user explicitly asks for a **cold start**, initialization, bootstrap from opendump, sends the setup one-liner above, or equivalent, execute `HARNESS_BOOTSTRAP.md` before normal task handling.
-
-Cold start selects and **locks** a store mode, generates and installs a derived adapter on the native persistent instruction surface, verifies the adapter/store binding by read-back and independent store access, then loads and surfaces live tasks. Only `READY` is success.
+Normal startup does not read `HARNESS_BOOTSTRAP.md` and does not rewrite the adapter. Use the bootstrap protocol only for explicit cold start, invalid/missing binding, recovery, or a requested mode/location change.
 
 ## Lifecycle
 
-Behavior is identical across modes except for **where** mutations are written and whether a git push happens.
+Behavior is identical across modes except for where mutations are persisted.
 
-1. **Startup sync** — Per locked mode, load current open tasks from the store.
-2. **Cold start when requested** — Run `HARNESS_BOOTSTRAP.md` before proceeding.
-3. **Automatic task capture** — When the user mentions a new trackable task, immediately add it to the appropriate **Backlog** in the locked store in the same turn. **Do not wait for confirmation such as “push”, “add”, or “backlog”.**
-4. **Amend / correct** — If the user changes a task title, scope, category, notes, or priority, update the tracked item in the store immediately.
-5. **Surface** — At conversation start, and whenever asked, show **Backlog** and **In progress** (Private then Business). Keep it short. Do not invent work. If the user asks a general status question such as **“What’s up?”**, **“What’s the status?”**, **“Any news?”**, or an equivalent status/update question, always **open the response with a concise summary of all open tasks** (all Backlog + In progress items across Private and Business) before any other updates, commentary, or details.
-6. **Progress** — When the user reports progress on an existing task, move it to **In progress** if it is still in Backlog, append a dated note, and persist to the store.
-7. **Done** — When the user says a tracked task is done/accomplished, remove it from the active private/business list and append it to the matching completed archive with the finish or report date (`YYYY-MM-DD`), then persist. Never retain completed entries or a Done section in the active task lists.
+1. **Capture** — When the user expresses new trackable work, add it to the appropriate Backlog in the same turn.
+2. **Amend** — When the user changes a task's title, scope, category, notes, or priority, update the existing task immediately.
+3. **Surface** — At conversation start and whenever asked, show Backlog + In progress, Private then Business. For broad status questions such as “What's up?”, “What's the status?”, or “Any news?”, open with a concise summary of all open tasks before other details.
+4. **Progress** — When the user reports progress, move the task to In progress if needed, append a dated progress note, and persist.
+5. **Done** — Remove the task from the active file/section and append it to the matching completed archive with the completion/report date (`YYYY-MM-DD`). Do not keep completed tasks in active lists.
 
-### Persist rules by mode
+### Persistence by mode
 
-- **`github`** — commit and push to the **locked user-owned** repo’s default branch after mutations; short audit-friendly message; group mutations from the same user message when practical. **Never** push to `JPilsinger/opendump`.
-- **`local-files`** — write the canonical task-state files in the same turn; no push.
-- **`artifact`** — update the durable artifact in the same turn; no push. Warn that portability and multi-device sync are weaker than GitHub.
-- **`unsupported`** — do not capture; explain the limitation and offer setup help toward user-owned `github`, `local-files`, or `artifact`.
+- `github` — commit and push task mutations to the bound user-controlled repository; use short audit-friendly commit messages and group mutations from the same user message when practical.
+- `local-files` — write the canonical task-state files in the same turn.
+- `artifact` — update the durable artifact in the same turn.
+- `unsupported` — do not capture tasks; explain that reliable persistence is unavailable.
 
 ## What counts as a new task
 
-Capture actionable work that should remain tracked beyond the current conversational exchange, including explicit to-dos and statements such as “I need to…”, “we need to…”, “remember to…”, “add a task…”, or equivalent language.
+Capture actionable work that should remain tracked beyond the current exchange, including explicit to-dos and statements such as “I need to…”, “we need to…”, “remember to…”, or “add a task…”.
 
-Do **not** create a new task for:
+Do not create a new task for:
 
 - ordinary questions, explanations, brainstorming, or hypothetical ideas with no action commitment;
-- status queries such as “what’s up?” or “any news?”;
-- a progress/done update that clearly refers to an existing task;
-- repository/instruction/bootstrap maintenance itself unless the user explicitly says it should be tracked as a task;
-- duplicate work already present in Backlog or In progress — update the existing item instead.
+- status queries;
+- progress/done updates that clearly refer to an existing task;
+- repository/protocol/bootstrap maintenance unless the user explicitly asks to track it;
+- work already represented in Backlog or In progress.
 
-If an explicit task can be fully handled in the current turn but the user framed it as something to track, capture it; otherwise ordinary one-off assistant work is not automatically a task.
+If an explicit task can be fully handled in the current turn but the user framed it as something to track, capture it. Otherwise ordinary one-off assistant work is not automatically a task.
 
 ## Classification and deduplication
 
-- Classify clearly personal items into `private.md` and clearly work/client/business items into `business.md` (or the artifact equivalents).
+- Clearly personal work goes to Private; clearly work/client/business work goes to Business.
 - Use surrounding context and existing tasks to avoid unnecessary questions.
-- If classification remains genuinely ambiguous, **do not lose the task**: add it to private with a nested note `classification: tentative — private/business unclear`, persist it, and mention the ambiguity in the reply. Move it later if the user corrects the category.
-- Before adding, check both lists for the same underlying intent. Prefer updating an existing task over creating a near-duplicate.
-- Processing the same or materially equivalent source more than once MUST NOT create duplicate task intent already represented in Backlog or In progress. Deduplicate against canonical task state, not against a staging/processed-source ledger.
+- If classification remains genuinely ambiguous, preserve the task in Private with a nested note `classification: tentative — private/business unclear`, persist it, and mention the ambiguity. Move it later if corrected.
+- Before adding a task, check both open collections for the same underlying intent. Prefer updating an existing task over creating a near-duplicate.
+- Processing the same or materially equivalent source more than once MUST NOT create duplicate task intent already represented in Backlog or In progress.
 
 ## Task format
+
+Open task:
 
 ```markdown
 - [ ] Short title
@@ -148,47 +135,38 @@ If an explicit task can be fully handled in the current turn but the user framed
   - progress: YYYY-MM-DD — what happened
 ```
 
-Completed entries (stored only in the matching completed archive):
+Completed task:
 
 ```markdown
 - [x] Short title (YYYY-MM-DD)
   - optional notes / last progress
 ```
 
-Use today’s date when the user reports finishing unless they give another date.
+Use today's date when the user reports finishing unless they provide another date.
 
 ## Source-material intake
 
-Source material may arrive through any capability exposed by the host, including chat messages, images, audio, documents, files, links, attachments, or other content.
+Source material may arrive through any capability exposed by the host, including chat messages, images, audio, documents, files, links, or attachments.
 
 When source material contains trackable work:
 
-1. interpret or extract the actionable intent;
+1. interpret/extract the actionable intent;
 2. deduplicate it against existing open task state;
 3. classify it as Private or Business;
 4. persist the resulting task mutation to the locked store in the same turn.
 
 Additional rules:
 
-- For screenshots / photos / images, extract the actual to-dos rather than creating a task such as “look at screenshot”.
-- For voice/audio, transcribe or summarize when the host can do so; if the content cannot be interpreted, ask only for the missing information needed to extract the task.
+- For screenshots/photos/images, extract the actual to-dos rather than creating a task such as “look at screenshot”.
+- For voice/audio, transcribe or summarize when possible; if the content cannot be interpreted, ask only for the missing information needed to extract the task.
 - For text/markdown/chat/documents, extract trackable tasks directly.
-- Source material itself is **not** part of opendump task state and MUST NOT be copied, staged, archived, moved, or retained in the opendump store unless the user explicitly asks for that retention.
-- Transport, upload handling, watched directories, staging, source-file movement, acknowledgement queues, and post-processing lifecycle are host/integration concerns outside the opendump protocol.
+- Source material itself is not opendump task state and MUST NOT be copied, staged, archived, moved, or retained in the opendump store unless the user explicitly requests retention.
+- Transport, upload handling, watched directories, staging, source-file movement, acknowledgement queues, and post-processing lifecycle are host/integration concerns.
 
-## After task-state changes
+## Maintaining the protocol
 
-- Persist according to the locked mode’s persist rules above.
-- Only mutate canonical task-state files/sections and intentional protocol documents.
-- Do not create store-side environment-binding manifests as part of normal opendump operation.
-- Do not create transport/staging directories as part of normal opendump operation.
-
-## Maintaining the protocol and adapters
-
-- Change workflow semantics in `AGENTS.md` first.
-- Change cross-host bootstrap/translation and mode selection in `HARNESS_BOOTSTRAP.md` first.
-- Keep the public template free of host-specific adapter files and environment-specific binding manifests.
-- Keep source-ingestion transport/staging mechanisms outside the canonical store schema.
-- Generate or regenerate the adapter only in the initialized user environment, using that host's discovered native persistent instruction surface.
-- Never make a generated host-specific adapter the upstream specification for another host.
-- Derived project instructions must always include a single locked store mode and location — no optional “if GitHub else local” branching left for runtime guesswork.
+- Change normal task semantics in `AGENTS.md`.
+- Change initialization, recovery, store selection, adapter generation, or verification semantics in `HARNESS_BOOTSTRAP.md`.
+- Keep the public template host-neutral: no committed host-specific adapters or environment-specific binding manifests.
+- Keep source-ingestion transport/staging outside the canonical store schema.
+- Generated adapters belong only in initialized host environments and MUST preserve exactly one store mode/location.
